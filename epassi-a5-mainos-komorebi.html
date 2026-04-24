@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+<meta charset="UTF-8">
+<title>Komorebi — Lounas 11 € — A5</title>
+<style>
+  @page { size: A5; margin: 0; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 148mm; height: 210mm; }
+
+  body {
+    font-family: "Helvetica Neue", Arial, sans-serif;
+    background: #fff;
+    color: #1a1a1a;
+  }
+
+  .poster {
+    width: 148mm;
+    height: 210mm;
+    padding: 18mm 14mm;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+  }
+
+  .brand {
+    font-size: 24pt;
+    font-weight: 700;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+  }
+
+  .rule {
+    margin-top: 8mm;
+    width: 20mm;
+    height: 1px;
+    background: #1a1a1a;
+  }
+
+  .label {
+    margin-top: 20mm;
+    font-size: 12pt;
+    letter-spacing: 4px;
+    text-transform: uppercase;
+    color: #666;
+  }
+
+  .price {
+    margin-top: 6mm;
+    font-size: 110pt;
+    font-weight: 800;
+    line-height: 1;
+    letter-spacing: -4px;
+  }
+
+  .price .eur {
+    font-size: 60pt;
+    font-weight: 700;
+    vertical-align: top;
+    margin-left: 2mm;
+  }
+
+  .hours {
+    margin-top: 10mm;
+    font-size: 13pt;
+    font-weight: 500;
+    color: #333;
+  }
+
+  .payment {
+    margin-top: auto;
+    padding-top: 10mm;
+    border-top: 1px solid #e0e0e0;
+    width: 100%;
+  }
+
+  .payment-label {
+    font-size: 9pt;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: #888;
+  }
+
+  .epassi {
+    margin-top: 4mm;
+    font-size: 22pt;
+    font-weight: 900;
+    letter-spacing: -1px;
+    background: linear-gradient(90deg, #ff7a4a 0%, #ff3d7f 60%, #e6337a 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  .epassi .dot {
+    display: inline-block;
+    width: 6pt;
+    height: 6pt;
+    border-radius: 50%;
+    background: #ff7a4a;
+    margin-left: 1px;
+    vertical-align: top;
+    margin-top: 2pt;
+  }
+</style>
+</head>
+<body>
+  <div class="poster">
+    <div class="brand">Komorebi</div>
+    <div class="rule"></div>
+
+    <div class="label">Lounas</div>
+    <div class="price">11<span class="eur">€</span></div>
+    <div class="hours">Ma&ndash;Pe klo 11&ndash;14</div>
+
+    <div class="payment">
+      <div class="payment-label">Hyväksymme</div>
+      <div class="epassi">epassi<span class="dot"></span></div>
+    </div>
+  </div>
+</body>
+</html>
