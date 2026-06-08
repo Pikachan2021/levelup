@@ -1,9 +1,9 @@
 <!DOCTYPE html>
 <!--
-  プレビュー版（スタンドアロン）/ Standalone preview
-  - デプロイ不要。このファイルをダブルクリックしてブラウザで開くだけ。
-  - 実際のスプレッドシートには書き込みません（見た目・操作感の確認用）。
-  - 本番は Index.html + Code.gs を Apps Script にデプロイして使います。
+  プレビュー版（スタンドアロン）/ Standalone preview — "画像通り" の記録方式
+  - 1日 = 上段:作業 / 下段:時刻。作業ボタンを押すと、その日の次の空きスロットに
+    〔作業名 + 現在時刻〕が入る（画像のシートと同じ流れ）。
+  - デプロイ不要。ダブルクリックでブラウザで開くだけ。書き込みは行いません。
 -->
 <html lang="en">
 <head>
@@ -11,164 +11,149 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Time Entry - Preview</title>
   <style>
-    :root { --accent: #2563eb; --accent2: #059669; }
     * { box-sizing: border-box; }
-    html, body { height: 100%; }
     body {
-      margin: 0; font-family: -apple-system, "Segoe UI", "Hiragino Sans", "Yu Gothic", sans-serif;
-      background: #f1f5f9; color: #0f172a;
-      display: flex; align-items: center; justify-content: center; padding: 24px;
+      margin: 0; font-family: -apple-system, "Segoe UI", "Hiragino Sans", sans-serif;
+      background: #f1f5f9; color: #0f172a; padding: 20px;
     }
-    .card {
-      background: #fff; border-radius: 16px; box-shadow: 0 10px 30px rgba(2,6,23,.12);
-      padding: 28px 40px 32px; width: 100%; max-width: 720px;
+    .wrap { max-width: 1000px; margin: 0 auto; }
+    .card { background: #fff; border-radius: 14px; box-shadow: 0 8px 24px rgba(2,6,23,.1); padding: 22px 26px; }
+    .preview-tag { display:inline-block; font-size:12px; color:#92400e; background:#fef3c7; border:1px solid #fde68a; border-radius:999px; padding:3px 10px; margin-bottom:14px; }
+    .topbar { display:flex; align-items:baseline; justify-content:space-between; gap:12px; flex-wrap:wrap; margin-bottom:4px; }
+    .who { display:flex; align-items:center; gap:10px; }
+    .who select { font-size:18px; font-weight:700; padding:4px 8px; border:1px solid #cbd5e1; border-radius:8px; }
+    .date { font-size:15px; color:#64748b; }
+    .hint { font-size:13px; color:#94a3b8; margin:8px 0 18px; }
+
+    h4 { margin: 18px 0 8px; font-size: 13px; color:#64748b; }
+    .grid { display:grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap:10px; }
+    button.act {
+      padding:18px 10px; font-size:16px; font-weight:600; color:#fff; border:none;
+      border-radius:10px; cursor:pointer; background:#2563eb;
+      box-shadow:0 3px 8px rgba(37,99,235,.25); transition: filter .12s, transform .05s;
     }
-    .preview-tag {
-      display: inline-block; font-size: 12px; color: #92400e; background: #fef3c7;
-      border: 1px solid #fde68a; border-radius: 999px; padding: 3px 10px; margin-bottom: 16px;
-    }
-    .staffbar { display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap; }
-    .staffbar button {
-      border: 1px solid #cbd5e1; background: #fff; color: #334155;
-      border-radius: 999px; padding: 8px 16px; font-size: 14px; cursor: pointer;
-    }
-    .staffbar button.active { background: #0f172a; color: #fff; border-color: #0f172a; }
-    .header { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 6px; }
-    .name { font-size: 26px; font-weight: 700; }
-    .date { font-size: 15px; color: #64748b; }
-    .hint { font-size: 13px; color: #94a3b8; margin-bottom: 24px; }
-    .buttons { display: flex; gap: 20px; }
-    button.item {
-      flex: 1; padding: 40px 16px; font-size: 24px; font-weight: 700;
-      color: #fff; border: none; border-radius: 14px; cursor: pointer;
-      background: var(--accent); box-shadow: 0 4px 12px rgba(37,99,235,.3);
-      transition: transform .06s ease, box-shadow .15s ease, filter .15s ease;
-    }
-    button.item:nth-child(2) { background: var(--accent2); box-shadow: 0 4px 12px rgba(5,150,105,.3); }
-    button.item:hover { filter: brightness(1.06); box-shadow: 0 6px 18px rgba(2,6,23,.22); }
-    button.item:active { transform: translateY(2px); }
-    .footer { margin-top: 24px; display: flex; align-items: center; justify-content: space-between; gap: 16px; }
-    .undo {
-      background: #fff; color: #475569; border: 1px solid #cbd5e1; border-radius: 10px;
-      padding: 12px 18px; font-size: 15px; cursor: pointer;
-    }
-    .undo:hover { background: #f8fafc; }
-    #status { font-size: 16px; min-height: 24px; }
-    #status.ok { color: #047857; }
-    #status.err { color: #b91c1c; }
-    .mock { margin-top: 22px; border-top: 1px dashed #e2e8f0; padding-top: 14px; }
-    .mock h4 { margin: 0 0 8px; font-size: 13px; color: #64748b; font-weight: 600; }
-    .mock table { border-collapse: collapse; font-size: 13px; }
-    .mock td, .mock th { border: 1px solid #e2e8f0; padding: 4px 10px; text-align: center; }
-    .mock th { background: #f8fafc; color: #475569; }
+    button.act:hover { filter:brightness(1.07); }
+    button.act:active { transform: translateY(1px); }
+    button.act.break { background:#0891b2; }
+    button.act.admin { background:#7c3aed; }
+
+    /* 今日の記録（画像の見た目を模したテーブル） */
+    .sheet { margin-top:8px; overflow-x:auto; border:1px solid #cbd5e1; border-radius:8px; }
+    table { border-collapse: collapse; width:100%; min-width:640px; }
+    th, td { border:1px solid #bfdbfe; padding:6px 10px; text-align:center; font-size:14px; white-space:nowrap; }
+    th { background:#eff6ff; color:#475569; font-weight:600; }
+    .rowlabel { background:#16a34a; color:#fff; font-weight:700; }
+    .act-cell { background:#dbeafe; }
+    .time-cell { background:#eff6ff; color:#1e3a8a; }
+    .empty { color:#cbd5e1; }
+
+    .footer { margin-top:16px; display:flex; align-items:center; justify-content:space-between; gap:12px; }
+    #status { font-size:15px; min-height:22px; }
+    #status.ok { color:#047857; }
+    #status.err { color:#b91c1c; }
+    .undo { background:#fff; color:#475569; border:1px solid #cbd5e1; border-radius:10px; padding:10px 16px; font-size:15px; cursor:pointer; }
+    .undo:hover { background:#f8fafc; }
   </style>
 </head>
 <body>
-  <div class="card">
+  <div class="wrap"><div class="card">
     <span class="preview-tag">Preview (no data is written)</span>
 
-    <div class="staffbar" id="staffbar"></div>
-
-    <div class="header">
-      <div class="name" id="name"></div>
+    <div class="topbar">
+      <div class="who">
+        <select id="staff">
+          <option value="Eemeli">Eemeli</option>
+          <option value="Markus">Markus</option>
+          <option value="Tuomas">Tuomas</option>
+          <option value="Antti">Antti</option>
+        </select>
+      </div>
       <div class="date" id="today"></div>
     </div>
-    <div class="hint">Click a button to record the current time on today's row.</div>
+    <div class="hint">Tap the task you are starting. The current time is logged into the next slot for today.</div>
 
-    <div class="buttons" id="buttons"></div>
+    <h4>WORK</h4>
+    <div class="grid" id="workgrid"></div>
+    <h4>BREAK / OTHER</h4>
+    <div class="grid" id="othergrid"></div>
+
+    <h4>TODAY</h4>
+    <div class="sheet">
+      <table id="log">
+        <tr id="hrow"></tr>
+        <tr id="arow"></tr>
+        <tr id="trow"></tr>
+      </table>
+    </div>
 
     <div class="footer">
       <div id="status"></div>
       <button class="undo" onclick="undoLast()">↩ Undo last entry</button>
     </div>
-
-    <div class="mock">
-      <h4>↓ How it lands in the sheet (today's row)</h4>
-      <table id="mocktable"></table>
-    </div>
-  </div>
+  </div></div>
 
   <script>
-    // ---- デモ用データ（本番は Code.gs の CONFIG.STAFF と同じ）----
-    var STAFF = {
-      emeli:  { name: 'Eemeli', items: ['Packing', 'Company Work'] },
-      markus: { name: 'Markus', items: ['Packing', 'Company Work'] },
-      tuomas: { name: 'Tuomas', items: ['Packing', 'Company Work'] },
-      antti:  { name: 'Antti',  items: ['Packing', 'Company Work'] }
-    };
-    var current = 'emeli';
-    // セルの中身を保持（プレビュー用の擬似スプレッドシート）
-    var cells = {}; // key: staffKey|item -> "08:00, 12:30"
-    var lastKey = null;
+    // 作業項目（画像 + job description 列より）。break/admin で色分け。
+    var WORK = ['morning meeting','Order printing','Picking','Packing','Labeling','Scanning','Company work','other work'];
+    var OTHER = ['Teaching','meeting','Registering','cleaning','shelving','trash','Lounas','Tauko'];
+    var BREAKS = { 'Lounas': 'break', 'Tauko': 'break' };
+
+    var slots = []; // [{act, time}]
 
     function fmtToday() {
       var d = new Date();
-      var days = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
-      var months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-      return days[d.getDay()] + ', ' + months[d.getMonth()] + ' ' + d.getDate() + ', ' + d.getFullYear();
+      var days=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+      var months=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+      return days[d.getDay()]+', '+months[d.getMonth()]+' '+d.getDate()+', '+d.getFullYear();
     }
-    function nowHHmm() {
-      var d = new Date();
-      return ('0'+d.getHours()).slice(-2) + ':' + ('0'+d.getMinutes()).slice(-2);
+    function nowTime(){ var d=new Date(); function p(n){return ('0'+n).slice(-2);} return p(d.getHours())+':'+p(d.getMinutes())+':'+p(d.getSeconds()); }
+    function showStatus(m,e){ var s=document.getElementById('status'); s.textContent=m; s.className=e?'err':'ok'; }
+
+    function makeBtn(label, container) {
+      var b=document.createElement('button');
+      b.textContent=label;
+      b.className='act' + (BREAKS[label]?' break':(container==='other'?' admin':''));
+      b.onclick=function(){ punch(label); };
+      document.getElementById(container==='work'?'workgrid':'othergrid').appendChild(b);
     }
-    function showStatus(msg, err) {
-      var s = document.getElementById('status');
-      s.textContent = msg; s.className = err ? 'err' : 'ok';
+    function renderButtons(){
+      document.getElementById('workgrid').innerHTML='';
+      document.getElementById('othergrid').innerHTML='';
+      WORK.forEach(function(w){ makeBtn(w,'work'); });
+      OTHER.forEach(function(w){ makeBtn(w,'other'); });
     }
 
-    function renderStaffbar() {
-      var bar = document.getElementById('staffbar'); bar.innerHTML = '';
-      Object.keys(STAFF).forEach(function (k) {
-        var b = document.createElement('button');
-        b.textContent = STAFF[k].name;
-        b.className = (k === current) ? 'active' : '';
-        b.onclick = function () { current = k; render(); };
-        bar.appendChild(b);
-      });
-    }
-    function renderButtons() {
-      var wrap = document.getElementById('buttons'); wrap.innerHTML = '';
-      STAFF[current].items.forEach(function (item) {
-        var b = document.createElement('button');
-        b.className = 'item';
-        b.innerHTML = item + '<span style="font-size:14px;font-weight:400;opacity:.9;display:block;margin-top:8px;">Click to record current time</span>';
-        b.onclick = function () { punch(item); };
-        wrap.appendChild(b);
-      });
-    }
-    function renderMock() {
-      var t = document.getElementById('mocktable');
-      var items = STAFF[current].items;
-      var head = '<tr><th>Date</th>' + items.map(function (i) { return '<th>' + STAFF[current].name + '<br>' + i + '</th>'; }).join('') + '</tr>';
-      var d = new Date();
-      var row = '<tr><td>' + d.getDate() + '</td>' + items.map(function (i) {
-        return '<td>' + (cells[current + '|' + i] || '') + '</td>';
-      }).join('') + '</tr>';
-      t.innerHTML = head + row;
-    }
-    function render() {
-      document.getElementById('name').textContent = STAFF[current].name;
-      renderStaffbar(); renderButtons(); renderMock();
+    function renderLog(){
+      var h=document.getElementById('hrow'), a=document.getElementById('arow'), t=document.getElementById('trow');
+      var staff=document.getElementById('staff').value;
+      h.innerHTML='<th class="rowlabel">'+staff+'</th>';
+      a.innerHTML='<th class="rowlabel">Task</th>';
+      t.innerHTML='<th class="rowlabel">Time</th>';
+      var n=Math.max(slots.length+1, 8);
+      for(var i=0;i<n;i++){
+        h.innerHTML+='<th>'+(i+1)+'</th>';
+        var s=slots[i];
+        a.innerHTML+='<td class="act-cell">'+(s?s.act:'<span class="empty">—</span>')+'</td>';
+        t.innerHTML+='<td class="time-cell">'+(s?s.time:'')+'</td>';
+      }
     }
 
-    function punch(item) {
-      var key = current + '|' + item, now = nowHHmm();
-      cells[key] = cells[key] ? (cells[key] + ', ' + now) : now;
-      lastKey = key;
-      showStatus('✓ ' + STAFF[current].name + ' · ' + item + ' · ' + now + ' recorded', false);
-      renderMock();
+    function punch(act){
+      var time=nowTime();
+      slots.push({act:act, time:time});
+      showStatus('✓ '+act+' · '+time+' (slot '+slots.length+')', false);
+      renderLog();
     }
-    function undoLast() {
-      if (!lastKey || !cells[lastKey]) { showStatus('Nothing to undo', true); return; }
-      var parts = cells[lastKey].split(',').map(function (s) { return s.trim(); }).filter(String);
-      var removed = parts.pop();
-      cells[lastKey] = parts.join(', ');
-      showStatus('↩ removed ' + removed, false);
-      renderMock();
+    function undoLast(){
+      if(!slots.length){ showStatus('Nothing to undo', true); return; }
+      var s=slots.pop();
+      showStatus('↩ removed '+s.act+' · '+s.time, false);
+      renderLog();
     }
 
-    document.getElementById('today').textContent = fmtToday();
-    render();
+    document.getElementById('today').textContent=fmtToday();
+    document.getElementById('staff').onchange=function(){ slots=[]; renderLog(); showStatus('',false); };
+    renderButtons(); renderLog();
   </script>
 </body>
 </html>
