@@ -4,66 +4,77 @@
   <base target="_top">
   <meta charset="utf-8">
   <style>
-    :root { --accent: #2563eb; --accent2: #059669; --bg: #0f172a; }
-    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    :root { --accent: #2563eb; --accent2: #059669; }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; }
     body {
-      margin: 0; font-family: -apple-system, "Hiragino Sans", "Yu Gothic", sans-serif;
-      background: var(--bg); color: #fff; min-height: 100vh;
-      display: flex; flex-direction: column; align-items: center;
-      padding: 16px;
+      margin: 0; font-family: -apple-system, "Segoe UI", "Hiragino Sans", "Yu Gothic", sans-serif;
+      background: #f1f5f9; color: #0f172a;
+      display: flex; align-items: center; justify-content: center; padding: 24px;
     }
-    .name { font-size: 22px; font-weight: 700; margin: 12px 0 4px; }
-    .date { font-size: 14px; color: #94a3b8; margin-bottom: 20px; }
-    .buttons { width: 100%; max-width: 460px; display: flex; flex-direction: column; gap: 16px; }
+    .card {
+      background: #fff; border-radius: 16px; box-shadow: 0 10px 30px rgba(2,6,23,.12);
+      padding: 32px 40px 36px; width: 100%; max-width: 720px;
+    }
+    .header { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 6px; }
+    .name { font-size: 26px; font-weight: 700; }
+    .date { font-size: 15px; color: #64748b; }
+    .hint { font-size: 13px; color: #94a3b8; margin-bottom: 24px; }
+    .buttons { display: flex; gap: 20px; }
     button.item {
-      width: 100%; padding: 28px 16px; font-size: 24px; font-weight: 700;
-      color: #fff; border: none; border-radius: 18px; cursor: pointer;
-      background: var(--accent); box-shadow: 0 6px 16px rgba(0,0,0,.35);
-      transition: transform .05s ease, filter .1s ease;
+      flex: 1; padding: 40px 16px; font-size: 24px; font-weight: 700;
+      color: #fff; border: none; border-radius: 14px; cursor: pointer;
+      background: var(--accent); box-shadow: 0 4px 12px rgba(37,99,235,.3);
+      transition: transform .06s ease, box-shadow .15s ease, filter .15s ease;
     }
-    button.item:nth-child(2) { background: var(--accent2); }
-    button.item:active { transform: scale(.97); filter: brightness(1.1); }
-    button.item:disabled { opacity: .5; }
-    .sub { font-size: 14px; font-weight: 400; opacity: .85; display: block; margin-top: 6px; }
+    button.item:nth-child(2) { background: var(--accent2); box-shadow: 0 4px 12px rgba(5,150,105,.3); }
+    button.item:hover { filter: brightness(1.06); box-shadow: 0 6px 18px rgba(2,6,23,.22); }
+    button.item:active { transform: translateY(2px); }
+    button.item:disabled { opacity: .5; cursor: default; }
+    .sub { font-size: 14px; font-weight: 400; opacity: .9; display: block; margin-top: 8px; }
+    .footer { margin-top: 24px; display: flex; align-items: center; justify-content: space-between; gap: 16px; }
     .undo {
-      margin-top: 8px; background: transparent; color: #cbd5e1;
-      border: 1px solid #475569; border-radius: 12px; padding: 14px;
-      font-size: 16px; width: 100%; max-width: 460px; cursor: pointer;
+      background: #fff; color: #475569; border: 1px solid #cbd5e1; border-radius: 10px;
+      padding: 12px 18px; font-size: 15px; cursor: pointer;
     }
-    .undo:active { background: #1e293b; }
-    #toast {
-      position: fixed; left: 50%; bottom: 28px; transform: translateX(-50%) translateY(40px);
-      background: #111827; color: #fff; padding: 14px 20px; border-radius: 12px;
-      font-size: 16px; max-width: 90%; text-align: center; opacity: 0;
-      transition: all .25s ease; pointer-events: none; box-shadow: 0 6px 20px rgba(0,0,0,.4);
-    }
-    #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
-    #toast.err { background: #7f1d1d; }
-    .error-box { background: #7f1d1d; padding: 16px; border-radius: 12px; max-width: 460px; }
+    .undo:hover { background: #f8fafc; }
+    #status { font-size: 16px; min-height: 24px; }
+    #status.ok { color: #047857; }
+    #status.err { color: #b91c1c; }
+    .error-box { background: #fef2f2; color: #991b1b; padding: 20px; border-radius: 12px; border: 1px solid #fecaca; }
+    code { background: #f1f5f9; padding: 2px 6px; border-radius: 4px; }
   </style>
 </head>
 <body>
   <? if (!valid) { ?>
-    <div class="error-box">
-      URL が正しくありません。<br>
-      <code>?staff=emeli&amp;token=...</code> の形式で開いてください。
+    <div class="card">
+      <div class="error-box">
+        URL が正しくありません。<br>
+        <code>?staff=emeli&amp;token=...</code> の形式で開いてください。
+      </div>
     </div>
   <? } else { ?>
-    <div class="name"><?= staffName ?></div>
-    <div class="date" id="today"></div>
+    <div class="card">
+      <div class="header">
+        <div class="name"><?= staffName ?></div>
+        <div class="date" id="today"></div>
+      </div>
+      <div class="hint">ボタンをクリックすると、今日の行に現在時刻が記録されます。</div>
 
-    <div class="buttons">
-      <? for (var i = 0; i < items.length; i++) { ?>
-        <button class="item" onclick="punch('<?= items[i] ?>', this)">
-          <?= items[i] ?>
-          <span class="sub">タップで現在時刻を記録</span>
-        </button>
-      <? } ?>
+      <div class="buttons">
+        <? for (var i = 0; i < items.length; i++) { ?>
+          <button class="item" onclick="punch('<?= items[i] ?>', this)">
+            <?= items[i] ?>
+            <span class="sub">クリックで現在時刻を記録</span>
+          </button>
+        <? } ?>
+      </div>
+
+      <div class="footer">
+        <div id="status"></div>
+        <button class="undo" onclick="undoLast()">↩ 直前の打刻を取り消す</button>
+      </div>
     </div>
-
-    <button class="undo" onclick="undoLast()">↩ 直前の打刻を取り消す</button>
-
-    <div id="toast"></div>
 
     <script>
       var STAFF = '<?= staffKey ?>';
@@ -78,11 +89,10 @@
         return d.getFullYear() + '/' + (d.getMonth()+1) + '/' + d.getDate() + '（' + w + '）';
       }
 
-      function showToast(msg, isErr) {
-        var t = document.getElementById('toast');
-        t.textContent = msg;
-        t.className = 'show' + (isErr ? ' err' : '');
-        setTimeout(function () { t.className = ''; }, 2600);
+      function showStatus(msg, isErr) {
+        var s = document.getElementById('status');
+        s.textContent = msg;
+        s.className = isErr ? 'err' : 'ok';
       }
 
       function setBusy(busy) {
@@ -93,30 +103,19 @@
       function punch(item, btn) {
         lastItem = item;
         setBusy(true);
+        showStatus('記録中…', false);
         google.script.run
-          .withSuccessHandler(function (res) {
-            setBusy(false);
-            showToast(res.message, !res.ok);
-          })
-          .withFailureHandler(function (err) {
-            setBusy(false);
-            showToast('通信エラー: ' + err.message, true);
-          })
+          .withSuccessHandler(function (res) { setBusy(false); showStatus(res.message, !res.ok); })
+          .withFailureHandler(function (err) { setBusy(false); showStatus('通信エラー: ' + err.message, true); })
           .recordPunch(STAFF, item, TOKEN);
       }
 
       function undoLast() {
-        if (!lastItem) { showToast('まだ打刻していません', true); return; }
+        if (!lastItem) { showStatus('まだ打刻していません', true); return; }
         setBusy(true);
         google.script.run
-          .withSuccessHandler(function (res) {
-            setBusy(false);
-            showToast(res.message, !res.ok);
-          })
-          .withFailureHandler(function (err) {
-            setBusy(false);
-            showToast('通信エラー: ' + err.message, true);
-          })
+          .withSuccessHandler(function (res) { setBusy(false); showStatus(res.message, !res.ok); })
+          .withFailureHandler(function (err) { setBusy(false); showStatus('通信エラー: ' + err.message, true); })
           .undoPunch(STAFF, lastItem, TOKEN);
       }
     </script>
