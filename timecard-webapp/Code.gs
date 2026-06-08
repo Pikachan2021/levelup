@@ -34,11 +34,14 @@ var CONFIG = {
   },
 
   // スタッフ -> 表示名と書き込み先シート名（タブ名）
+  // 各スタッフの「名前」シート（スロット式の方）に書き込む。
   STAFF: {
     emeli:  { name: 'Eemeli', sheet: 'Emeli'  },
-    markus: { name: 'Markus', sheet: 'Markus' },
     tuomas: { name: 'Tuomas', sheet: 'Tuomas' },
-    antti:  { name: 'Antti',  sheet: 'Antti'  }
+    markus: { name: 'Markus', sheet: 'Markus' },
+    matti:  { name: 'Matti',  sheet: 'Matti'  },
+    juhani: { name: 'Juhani', sheet: 'Juhani' },
+    dea:    { name: 'Dea',    sheet: 'Dea'    }
   }
 };
 // ================================================

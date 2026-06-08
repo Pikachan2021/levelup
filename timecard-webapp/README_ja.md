@@ -5,7 +5,7 @@
 実シートと同じ「**1日＝2行（上段＝作業／下段＝時刻）・左から順に埋める**」レイアウトに対応。
 
 - 画面・ボタンは**英語**（スタッフ向け）
-- 人ごとに別 URL（Eemeli / Markus / Tuomas / Antti）
+- 人ごとに別 URL（Eemeli / Tuomas / Markus / Matti / Juhani / Dea）
 - 押し間違いは「↩ Undo last entry」で直前のスロットを取り消し
 - セルは直接いじらない
 
@@ -67,13 +67,15 @@
 - **WORK**：morning meeting / Order printing / Picking / Packing / Labeling / Scanning / Company work / other work
 - **BREAK / OTHER**：Teaching / meeting / Registering / cleaning / shelving / trash / Lounas / Tauko
 
-スタッフ → シート名（既定。実際のタブ名に合わせて変更）：
+スタッフ → シート名（実タブに対応。各スタッフの「名前」シート＝スロット式の方に書き込む）：
 | staff キー | 表示名 | 書き込み先シート |
 |---|---|---|
 | `emeli` | Eemeli | `Emeli` |
-| `markus` | Markus | `Markus` |
 | `tuomas` | Tuomas | `Tuomas` |
-| `antti` | Antti | `Antti` |
+| `markus` | Markus | `Markus` |
+| `matti` | Matti | `Matti` |
+| `juhani` | Juhani | `Juhani` |
+| `dea` | Dea | `Dea` |
 
 > 日付セルは Date 型でも `6/8(月)` `6月8日` のような文字列でも今日を判定します。
 
@@ -93,9 +95,11 @@ sheet=Emeli todayTaskRow=◯ timeRow=◯ nextSlotCol=◯
 ### 5. スタッフ別 URL を配布
 ```
 Eemeli : .../exec?staff=emeli&token=xxxx
-Markus : .../exec?staff=markus&token=xxxx
 Tuomas : .../exec?staff=tuomas&token=xxxx
-Antti  : .../exec?staff=antti&token=xxxx
+Markus : .../exec?staff=markus&token=xxxx
+Matti  : .../exec?staff=matti&token=xxxx
+Juhani : .../exec?staff=juhani&token=xxxx
+Dea    : .../exec?staff=dea&token=xxxx
 ```
 各自 PC でブックマークして使用。
 
