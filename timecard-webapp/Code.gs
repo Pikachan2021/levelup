@@ -29,12 +29,15 @@ var CONFIG = {
   ON_EXISTING: 'append',
 
   // スタッフ定義: キー -> 表示名と各項目の列番号（A=1, B=2, ...）
-  // 項目名（パッキング / かんぱにワーク）はボタン表示にもそのまま使う。
+  // 項目名（Packing / Company Work）はボタン表示にもそのまま使う（英語）。
+  // 列の対応は Emeli T＆C シートのヘッダーに準拠:
+  //   A=日付, B/C=えーめり, D/E=マルクス, F/G=Tuomas, H/I=Antti
+  //   各スタッフ 左=パッキング(Packing), 右=かんぱにワーク(Company Work)
   STAFF: {
-    emeli:  { name: 'えーめり', items: { 'パッキング': 2, 'かんぱにワーク': 3 } }, // B, C
-    markus: { name: 'マルクス', items: { 'パッキング': 4, 'かんぱにワーク': 5 } }, // D, E
-    tuomas: { name: 'Tuomas',   items: { 'パッキング': 6, 'かんぱにワーク': 7 } }, // F, G
-    antti:  { name: 'Antti',    items: { 'パッキング': 8, 'かんぱにワーク': 9 } }  // H, I
+    emeli:  { name: 'Eemeli', items: { 'Packing': 2, 'Company Work': 3 } }, // B, C
+    markus: { name: 'Markus', items: { 'Packing': 4, 'Company Work': 5 } }, // D, E
+    tuomas: { name: 'Tuomas', items: { 'Packing': 6, 'Company Work': 7 } }, // F, G
+    antti:  { name: 'Antti',  items: { 'Packing': 8, 'Company Work': 9 } }  // H, I
   }
 };
 // ================================================
@@ -55,7 +58,7 @@ function doGet(e) {
   t.valid = !!staff;
 
   return t.evaluate()
-    .setTitle('打刻 - ' + (staff ? staff.name : '未設定'))
+    .setTitle('Time Entry - ' + (staff ? staff.name : 'Not set'))
     .addMetaTag('viewport', 'width=device-width, initial-scale=1, maximum-scale=1')
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
 }
@@ -87,7 +90,7 @@ function recordPunch(staffKey, item, token) {
 
     return {
       ok: true,
-      message: '✓ ' + ctx.staffName + ' ' + item + ' ' + now + ' を記録しました',
+      message: '✓ ' + ctx.staffName + ' · ' + item + ' · ' + now + ' recorded',
       value: newValue
     };
   });
@@ -104,7 +107,7 @@ function undoPunch(staffKey, item, token) {
     var existing = cell.getValue();
 
     if (existing === '' || existing === null) {
-      return { ok: false, message: '取り消す打刻がありません', value: '' };
+      return { ok: false, message: 'Nothing to undo', value: '' };
     }
     var parts = String(existing).split(',').map(function (s) { return s.trim(); }).filter(String);
     var removed = parts.pop();
@@ -113,7 +116,7 @@ function undoPunch(staffKey, item, token) {
 
     return {
       ok: true,
-      message: '↩ ' + ctx.staffName + ' ' + item + ' ' + removed + ' を取り消しました',
+      message: '↩ ' + ctx.staffName + ' · ' + item + ' · removed ' + removed,
       value: newValue
     };
   });
@@ -123,7 +126,7 @@ function undoPunch(staffKey, item, token) {
 
 function validateToken_(token) {
   if (CONFIG.TOKEN && String(token) !== String(CONFIG.TOKEN)) {
-    throw new Error('アクセスが許可されていません（token 不正）');
+    throw new Error('Access denied (invalid token)');
   }
 }
 
@@ -132,15 +135,15 @@ function validateToken_(token) {
  */
 function resolveTarget_(staffKey, item) {
   var staff = CONFIG.STAFF[staffKey];
-  if (!staff) throw new Error('不明なスタッフです: ' + staffKey);
+  if (!staff) throw new Error('Unknown staff: ' + staffKey);
   var col = staff.items[item];
-  if (!col) throw new Error('不明な項目です: ' + item);
+  if (!col) throw new Error('Unknown item: ' + item);
 
   var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(CONFIG.SHEET_NAME);
-  if (!sheet) throw new Error('シートが見つかりません: ' + CONFIG.SHEET_NAME);
+  if (!sheet) throw new Error('Sheet not found: ' + CONFIG.SHEET_NAME);
 
   var row = findTodayRow_(sheet);
-  if (!row) throw new Error('今日の日付の行が見つかりませんでした');
+  if (!row) throw new Error("Could not find today's date row");
 
   return { sheet: sheet, row: row, col: col, staffName: staff.name };
 }
@@ -186,12 +189,12 @@ function withLock_(fn) {
   try {
     lock.waitLock(10000);
   } catch (err) {
-    return { ok: false, message: '混み合っています。もう一度押してください', value: '' };
+    return { ok: false, message: 'Busy, please click again', value: '' };
   }
   try {
     return fn();
   } catch (err) {
-    return { ok: false, message: 'エラー: ' + err.message, value: '' };
+    return { ok: false, message: 'Error: ' + err.message, value: '' };
   } finally {
     lock.releaseLock();
   }

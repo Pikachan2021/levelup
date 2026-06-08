@@ -49,8 +49,8 @@
   <? if (!valid) { ?>
     <div class="card">
       <div class="error-box">
-        URL が正しくありません。<br>
-        <code>?staff=emeli&amp;token=...</code> の形式で開いてください。
+        Invalid URL.<br>
+        Please open it as <code>?staff=emeli&amp;token=...</code>
       </div>
     </div>
   <? } else { ?>
@@ -59,20 +59,20 @@
         <div class="name"><?= staffName ?></div>
         <div class="date" id="today"></div>
       </div>
-      <div class="hint">ボタンをクリックすると、今日の行に現在時刻が記録されます。</div>
+      <div class="hint">Click a button to record the current time on today's row.</div>
 
       <div class="buttons">
         <? for (var i = 0; i < items.length; i++) { ?>
           <button class="item" onclick="punch('<?= items[i] ?>', this)">
             <?= items[i] ?>
-            <span class="sub">クリックで現在時刻を記録</span>
+            <span class="sub">Click to record current time</span>
           </button>
         <? } ?>
       </div>
 
       <div class="footer">
         <div id="status"></div>
-        <button class="undo" onclick="undoLast()">↩ 直前の打刻を取り消す</button>
+        <button class="undo" onclick="undoLast()">↩ Undo last entry</button>
       </div>
     </div>
 
@@ -85,8 +85,9 @@
 
       function formatToday() {
         var d = new Date();
-        var w = ['日','月','火','水','木','金','土'][d.getDay()];
-        return d.getFullYear() + '/' + (d.getMonth()+1) + '/' + d.getDate() + '（' + w + '）';
+        var days = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+        var months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+        return days[d.getDay()] + ', ' + months[d.getMonth()] + ' ' + d.getDate() + ', ' + d.getFullYear();
       }
 
       function showStatus(msg, isErr) {
@@ -103,19 +104,19 @@
       function punch(item, btn) {
         lastItem = item;
         setBusy(true);
-        showStatus('記録中…', false);
+        showStatus('Recording…', false);
         google.script.run
           .withSuccessHandler(function (res) { setBusy(false); showStatus(res.message, !res.ok); })
-          .withFailureHandler(function (err) { setBusy(false); showStatus('通信エラー: ' + err.message, true); })
+          .withFailureHandler(function (err) { setBusy(false); showStatus('Connection error: ' + err.message, true); })
           .recordPunch(STAFF, item, TOKEN);
       }
 
       function undoLast() {
-        if (!lastItem) { showStatus('まだ打刻していません', true); return; }
+        if (!lastItem) { showStatus('Nothing to undo yet', true); return; }
         setBusy(true);
         google.script.run
           .withSuccessHandler(function (res) { setBusy(false); showStatus(res.message, !res.ok); })
-          .withFailureHandler(function (err) { setBusy(false); showStatus('通信エラー: ' + err.message, true); })
+          .withFailureHandler(function (err) { setBusy(false); showStatus('Connection error: ' + err.message, true); })
           .undoPunch(STAFF, lastItem, TOKEN);
       }
     </script>

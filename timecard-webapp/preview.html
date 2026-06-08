@@ -1,15 +1,15 @@
 <!DOCTYPE html>
 <!--
-  プレビュー版（スタンドアロン）
+  プレビュー版（スタンドアロン）/ Standalone preview
   - デプロイ不要。このファイルをダブルクリックしてブラウザで開くだけ。
   - 実際のスプレッドシートには書き込みません（見た目・操作感の確認用）。
   - 本番は Index.html + Code.gs を Apps Script にデプロイして使います。
 -->
-<html lang="ja">
+<html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>打刻アプリ プレビュー</title>
+  <title>Time Entry - Preview</title>
   <style>
     :root { --accent: #2563eb; --accent2: #059669; }
     * { box-sizing: border-box; }
@@ -65,7 +65,7 @@
 </head>
 <body>
   <div class="card">
-    <span class="preview-tag">プレビュー（書き込みは行いません）</span>
+    <span class="preview-tag">Preview (no data is written)</span>
 
     <div class="staffbar" id="staffbar"></div>
 
@@ -73,17 +73,17 @@
       <div class="name" id="name"></div>
       <div class="date" id="today"></div>
     </div>
-    <div class="hint">ボタンをクリックすると、今日の行に現在時刻が記録されます。</div>
+    <div class="hint">Click a button to record the current time on today's row.</div>
 
     <div class="buttons" id="buttons"></div>
 
     <div class="footer">
       <div id="status"></div>
-      <button class="undo" onclick="undoLast()">↩ 直前の打刻を取り消す</button>
+      <button class="undo" onclick="undoLast()">↩ Undo last entry</button>
     </div>
 
     <div class="mock">
-      <h4>↓ 実際に入るイメージ（今日の行・該当セル）</h4>
+      <h4>↓ How it lands in the sheet (today's row)</h4>
       <table id="mocktable"></table>
     </div>
   </div>
@@ -91,10 +91,10 @@
   <script>
     // ---- デモ用データ（本番は Code.gs の CONFIG.STAFF と同じ）----
     var STAFF = {
-      emeli:  { name: 'えーめり', items: ['パッキング', 'かんぱにワーク'] },
-      markus: { name: 'マルクス', items: ['パッキング', 'かんぱにワーク'] },
-      tuomas: { name: 'Tuomas',   items: ['パッキング', 'かんぱにワーク'] },
-      antti:  { name: 'Antti',    items: ['パッキング', 'かんぱにワーク'] }
+      emeli:  { name: 'Eemeli', items: ['Packing', 'Company Work'] },
+      markus: { name: 'Markus', items: ['Packing', 'Company Work'] },
+      tuomas: { name: 'Tuomas', items: ['Packing', 'Company Work'] },
+      antti:  { name: 'Antti',  items: ['Packing', 'Company Work'] }
     };
     var current = 'emeli';
     // セルの中身を保持（プレビュー用の擬似スプレッドシート）
@@ -102,8 +102,10 @@
     var lastKey = null;
 
     function fmtToday() {
-      var d = new Date(), w = ['日','月','火','水','木','金','土'][d.getDay()];
-      return d.getFullYear() + '/' + (d.getMonth()+1) + '/' + d.getDate() + '（' + w + '）';
+      var d = new Date();
+      var days = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+      var months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+      return days[d.getDay()] + ', ' + months[d.getMonth()] + ' ' + d.getDate() + ', ' + d.getFullYear();
     }
     function nowHHmm() {
       var d = new Date();
@@ -129,7 +131,7 @@
       STAFF[current].items.forEach(function (item) {
         var b = document.createElement('button');
         b.className = 'item';
-        b.innerHTML = item + '<span style="font-size:14px;font-weight:400;opacity:.9;display:block;margin-top:8px;">クリックで現在時刻を記録</span>';
+        b.innerHTML = item + '<span style="font-size:14px;font-weight:400;opacity:.9;display:block;margin-top:8px;">Click to record current time</span>';
         b.onclick = function () { punch(item); };
         wrap.appendChild(b);
       });
@@ -137,7 +139,7 @@
     function renderMock() {
       var t = document.getElementById('mocktable');
       var items = STAFF[current].items;
-      var head = '<tr><th>日付</th>' + items.map(function (i) { return '<th>' + STAFF[current].name + '<br>' + i + '</th>'; }).join('') + '</tr>';
+      var head = '<tr><th>Date</th>' + items.map(function (i) { return '<th>' + STAFF[current].name + '<br>' + i + '</th>'; }).join('') + '</tr>';
       var d = new Date();
       var row = '<tr><td>' + d.getDate() + '</td>' + items.map(function (i) {
         return '<td>' + (cells[current + '|' + i] || '') + '</td>';
@@ -153,15 +155,15 @@
       var key = current + '|' + item, now = nowHHmm();
       cells[key] = cells[key] ? (cells[key] + ', ' + now) : now;
       lastKey = key;
-      showStatus('✓ ' + STAFF[current].name + ' ' + item + ' ' + now + ' を記録しました', false);
+      showStatus('✓ ' + STAFF[current].name + ' · ' + item + ' · ' + now + ' recorded', false);
       renderMock();
     }
     function undoLast() {
-      if (!lastKey || !cells[lastKey]) { showStatus('取り消す打刻がありません', true); return; }
+      if (!lastKey || !cells[lastKey]) { showStatus('Nothing to undo', true); return; }
       var parts = cells[lastKey].split(',').map(function (s) { return s.trim(); }).filter(String);
       var removed = parts.pop();
       cells[lastKey] = parts.join(', ');
-      showStatus('↩ ' + removed + ' を取り消しました', false);
+      showStatus('↩ removed ' + removed, false);
       renderMock();
     }
 

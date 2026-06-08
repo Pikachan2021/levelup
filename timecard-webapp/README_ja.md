@@ -58,16 +58,18 @@ TOKEN: 'CHANGE_ME_1234',   // ← 推測されにくい合言葉に変更（URL 
 | `ON_EXISTING` | `'append'` | 既に値があるとき：`append`=追記（`08:00, 12:30`）／`overwrite`=上書き |
 | `STAFF` | 下記 | スタッフ・項目・列の対応表 |
 
-スタッフ・列の対応（既定）：
+スタッフ・項目・列の対応（既定）。UI 表示は**英語**、書き込み先は「Emeli T＆C」シートの列に準拠：
 
-| 列 | 内容 | staff キー |
-|---|---|---|
-| B / C | えーめり パッキング / かんぱにワーク | `emeli` |
-| D / E | マルクス パッキング / かんぱにワーク | `markus` |
-| F / G | Tuomas パッキング / かんぱにワーク | `tuomas` |
-| H / I | Antti パッキング / かんぱにワーク | `antti` |
+| 列 | 元の項目（日本語） | UI 表示（英語） | staff キー / 表示名 |
+|---|---|---|---|
+| B / C | えーめり パッキング / かんぱにワーク | Packing / Company Work | `emeli` / Eemeli |
+| D / E | マルクス パッキング / かんぱにワーク | Packing / Company Work | `markus` / Markus |
+| F / G | Tuomas パッキング / かんぱにワーク | Packing / Company Work | `tuomas` / Tuomas |
+| H / I | Antti パッキング / かんぱにワーク | Packing / Company Work | `antti` / Antti |
 
-> 列がズレている／項目を増やす場合は `STAFF` の数字（列番号）を直すだけで対応できます。
+各スタッフのページには **「Packing」「Company Work」の 2 ボタン**が表示され、クリックでその日の行の該当列に現在時刻（`HH:mm`）が入ります。
+
+> 列がズレている／項目を増やす場合は `Code.gs` の `CONFIG.STAFF` の数字（列番号）や項目名を直すだけで対応できます。
 
 ### 4. デプロイする
 1. 右上 **デプロイ → 新しいデプロイ**。
