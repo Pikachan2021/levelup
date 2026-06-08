@@ -1,128 +1,116 @@
-# ワンタップ打刻 Web アプリ
+# ワンタップ作業ログ Web アプリ（スロット方式）
 
-スタッフがセルを直接いじらず、**自分専用 URL を PC で開いて項目ボタンをクリックするだけ**で、
-スプレッドシート「Emeli T＆C」シートの **今日の日付の行・該当列に現在時刻が自動入力**される仕組みです。
+スタッフが **自分専用 URL を PC で開いて作業ボタンをクリックするだけ**で、
+対象シートの **今日の行の「次の空きスロット（列）」に〔作業名＋現在時刻〕** が入ります。
+実シートと同じ「**1日＝2行（上段＝作業／下段＝時刻）・左から順に埋める**」レイアウトに対応。
 
-- PC ブラウザ向け・ログイン不要・無料（Google Apps Script）
-- 人ごとに別 URL（えーめり / マルクス / Tuomas / Antti）
-- 押し間違い用の「↩ 取り消し」ボタンつき
+- 画面・ボタンは**英語**（スタッフ向け）
+- 人ごとに別 URL（Eemeli / Markus / Tuomas / Antti）
+- 押し間違いは「↩ Undo last entry」で直前のスロットを取り消し
+- セルは直接いじらない
 
-> ⚠️ **既存スプレッドシートはまだ変更しません。** まずは下記「テスト用コピーで試す」に従い、
-> **コピーした検証用シートで動作確認**してから、問題なければ本番シートに切り替えてください。
+> ⚠️ **本番シートはまだ変更しません。** まずは【テスト用コピー】で
+> `testToday()` を実行 → 検出位置を確認 → ボタンで試す、の順で進めてください。
 
 ---
 
 ## ファイル構成
-
 | ファイル | 役割 |
 |---|---|
-| `Code.gs` | サーバー側。画面表示・打刻・行/列の特定・取り消し |
-| `Index.html` | スマホ向け UI（大きいボタン・トースト表示） |
-| `appsscript.json` | タイムゾーンと Web アプリ公開設定 |
+| `Code.gs` | 画面表示・打刻（次の空きスロットに作業＋時刻）・取り消し・設定確認 |
+| `Index.html` | PC 向けの作業ボタン画面（英語） |
+| `appsscript.json` | タイムゾーン・公開設定 |
+| `preview.html` | デプロイ不要の確認用（ブラウザで開くだけ） |
+
+---
+
+## 記録の動き（画像通り）
+```
+[ 作業ボタンをクリック ]
+        │
+        ▼
+今日の行（作業行）を探す ──► その行の左から最初の「空きスロット列」を探す
+        │
+        ├─ 作業行・その列        → 作業名（例 Picking）
+        └─ 作業行+1・その列      → 現在時刻（例 09:39:32）
+```
+次にクリックすると、その右隣の空きスロットに入る（左から順に埋まる）。
 
 ---
 
 ## セットアップ手順
 
-### 0.（推奨）テスト用コピーで試す
-本番の「Emeli T＆C」を直接さわる前に、まずコピーで検証します。
-1. Google ドライブで対象スプレッドシートを **右クリック → コピーを作成**。
-2. コピーしたファイルで以下の手順を実施し、打刻が正しいセルに入るか確認。
-3. 問題なければ、本番ファイルで同じ手順を行う（または `CONFIG.SHEET_NAME` を本番タブに向ける）。
+### 0. テスト用コピーで試す（必須）
+本番を触る前にコピーで検証します（既に作成済みのコピーを利用）。
 
-### 1. Apps Script を開く
-（テスト用）コピーしたスプレッドシートを開き、メニューの
-**拡張機能 → Apps Script** をクリック。
+### 1. コードを貼り付ける
+コピーを開き **拡張機能 → Apps Script**。
+`Code.gs` を貼り付け、HTML ファイル `Index` を作って `Index.html` を貼り付け。
+（任意で `appsscript.json` も反映。最低限タイムゾーンは合わせる）
 
-### 2. ファイルを貼り付ける
-1. 既定の `コード.gs` の中身を全削除し、本リポジトリの **`Code.gs`** の内容を貼り付け。
-2. 左の「＋」→「HTML」で **`Index`** という名前のファイルを作り、**`Index.html`** の内容を貼り付け
-   （※ファイル名は拡張子なしの `Index`。`Index.html` になっていても可）。
-3. （任意）プロジェクトの設定で「`appsscript.json` マニフェスト ファイルをエディタで表示する」を ON にし、
-   **`appsscript.json`** の内容を貼り付け。やらない場合はタイムゾーンだけ後述の方法で合わせる。
-
-### 3. 設定（CONFIG）を確認・変更する
-`Code.gs` 冒頭の `CONFIG` を確認します。最低限、次は必ず変更してください。
-
-```js
-TOKEN: 'CHANGE_ME_1234',   // ← 推測されにくい合言葉に変更（URL の &token= と一致が必要）
-```
-
-必要に応じて調整できる項目：
+### 2. 設定（CONFIG）を合わせる
+`Code.gs` 冒頭の `CONFIG` を実シートに合わせます。
 
 | 項目 | 既定 | 説明 |
 |---|---|---|
-| `SHEET_NAME` | `'Emeli T＆C'` | 書き込む対象タブ名。実際のタブ名と一致させる |
-| `DATE_COL` | `1` | 日付(1〜31)が入っている列（A=1） |
-| `TIME_ZONE` | `'Europe/Helsinki'` | 記録する時刻のタイムゾーン |
-| `ON_EXISTING` | `'append'` | 既に値があるとき：`append`=追記（`08:00, 12:30`）／`overwrite`=上書き |
-| `STAFF` | 下記 | スタッフ・項目・列の対応表 |
+| `TOKEN` | `'CHANGE_ME_1234'` | **必ず変更**。URL の `&token=` と一致が必要 |
+| `TIME_ZONE` | `'Europe/Helsinki'` | 記録時刻のタイムゾーン |
+| `TIME_FORMAT` | `'HH:mm:ss'` | 時刻の書式（例 `09:39:32`） |
+| `DATE_COL` | `1` | 日付が入っている列（A=1） |
+| `FIRST_SLOT_COL` | `3` | 最初のスロット列（C=3） |
+| `LAST_SLOT_COL` | `40` | スロットを探す右端（多めでOK） |
+| `TIME_ROW_OFFSET` | `1` | 時刻を書く行＝作業行＋この値（下の行なら 1） |
+| `TASKS` | 下記 | ボタンに出す作業項目 |
+| `STAFF` | 下記 | スタッフ → 表示名・書き込み先シート名 |
 
-スタッフ・項目・列の対応（既定）。UI 表示は**英語**、書き込み先は「Emeli T＆C」シートの列に準拠：
+作業項目（ボタン）：
+- **WORK**：morning meeting / Order printing / Picking / Packing / Labeling / Scanning / Company work / other work
+- **BREAK / OTHER**：Teaching / meeting / Registering / cleaning / shelving / trash / Lounas / Tauko
 
-| 列 | 元の項目（日本語） | UI 表示（英語） | staff キー / 表示名 |
-|---|---|---|---|
-| B / C | えーめり パッキング / かんぱにワーク | Packing / Company Work | `emeli` / Eemeli |
-| D / E | マルクス パッキング / かんぱにワーク | Packing / Company Work | `markus` / Markus |
-| F / G | Tuomas パッキング / かんぱにワーク | Packing / Company Work | `tuomas` / Tuomas |
-| H / I | Antti パッキング / かんぱにワーク | Packing / Company Work | `antti` / Antti |
+スタッフ → シート名（既定。実際のタブ名に合わせて変更）：
+| staff キー | 表示名 | 書き込み先シート |
+|---|---|---|
+| `emeli` | Eemeli | `Emeli` |
+| `markus` | Markus | `Markus` |
+| `tuomas` | Tuomas | `Tuomas` |
+| `antti` | Antti | `Antti` |
 
-各スタッフのページには **「Packing」「Company Work」の 2 ボタン**が表示され、クリックでその日の行の該当列に現在時刻（`HH:mm`）が入ります。
+> 日付セルは Date 型でも `6/8(月)` `6月8日` のような文字列でも今日を判定します。
 
-> 列がズレている／項目を増やす場合は `Code.gs` の `CONFIG.STAFF` の数字（列番号）や項目名を直すだけで対応できます。
+### 3. 検出位置を確認する（testToday）
+Apps Script エディタで関数 **`testToday`** を選んで実行 → **実行ログ**を確認。
+```
+sheet=Emeli todayTaskRow=◯ timeRow=◯ nextSlotCol=◯
+```
+- `todayTaskRow` が今日の行、`nextSlotCol` が次に埋まる列。
+- 想定とズレていたら `DATE_COL` / `FIRST_SLOT_COL` / `TIME_ROW_OFFSET` を調整。
 
 ### 4. デプロイする
-1. 右上 **デプロイ → 新しいデプロイ**。
-2. 種類の歯車 → **ウェブアプリ** を選択。
-3. 設定：
-   - 次のユーザーとして実行：**自分**
-   - アクセスできるユーザー：**全員**（ログイン不要にする）
-4. **デプロイ** → 初回は権限の承認を求められるので許可。
-5. 表示される **ウェブアプリ URL**（`https://script.google.com/.../exec`）を控える。
+**デプロイ → 新しいデプロイ → ウェブアプリ**
+（実行：自分／アクセス：全員）→ 初回は権限を承認。
+表示される **ウェブアプリ URL** を控える。
 
-### 5. スタッフ別 URL を配布する
-控えた URL の末尾に `?staff=...&token=...` を付けて各自に渡します
-（`xxxx` は手順 3 で設定した `TOKEN` と同じ文字列）。
-
+### 5. スタッフ別 URL を配布
 ```
-えーめり : https://script.google.com/.../exec?staff=emeli&token=xxxx
-マルクス : https://script.google.com/.../exec?staff=markus&token=xxxx
-Tuomas  : https://script.google.com/.../exec?staff=tuomas&token=xxxx
-Antti   : https://script.google.com/.../exec?staff=antti&token=xxxx
+Eemeli : .../exec?staff=emeli&token=xxxx
+Markus : .../exec?staff=markus&token=xxxx
+Tuomas : .../exec?staff=tuomas&token=xxxx
+Antti  : .../exec?staff=antti&token=xxxx
 ```
-
-各自 PC のブラウザで開き、**ブックマーク**しておけばすぐ使えます。
+各自 PC でブックマークして使用。
 
 ---
 
 ## 使い方（スタッフ向け）
-1. 自分の URL を開く（ブックマークをクリック）。
-2. 上に自分の名前と今日の日付が出ているか確認。
-3. **「パッキング」または「かんぱにワーク」をクリック** → その瞬間の時刻が記録され、画面に「✓ …を記録しました」と表示。
-4. 押し間違えたら **「↩ 直前の打刻を取り消す」**。
+1. 自分の URL を開く。
+2. 始める作業のボタンをクリック → 今日の行の次のスロットに作業＋現在時刻が入る。
+3. 押し間違えたら **↩ Undo last entry**。
 
 ---
 
-## よくある質問・注意点
-- **「今日の日付の行が見つかりません」と出る** → `SHEET_NAME` が実タブ名と一致しているか、日付列(`DATE_COL`)が正しいか、今日の「日」がその列に存在するかを確認。
-- **時刻がずれる** → `TIME_ZONE` を確認（`appsscript.json` の `timeZone` も合わせる）。
-- **コードを直したのに反映されない** → Apps Script で **デプロイ → デプロイを管理 → 編集（鉛筆）→ バージョン「新バージョン」→ デプロイ** で更新（URL は変わりません）。
-- **記録は1セルに時刻を追記**します（既定 `append`）。1日1回だけにしたい場合は `ON_EXISTING: 'overwrite'` に変更。
-
----
-
-## 動作の仕組み（概要）
-```
-スタッフのスマホ
-  │ 専用URL (?staff=emeli&token=xxxx)
-  ▼
-doGet(Code.gs) → Index.html を表示（項目ボタン）
-  │ ボタンタップ → google.script.run.recordPunch()
-  ▼
-recordPunch(Code.gs)
-  ① findTodayRow_ : 日付列から今日の行を特定
-  ② CONFIG.STAFF : staff×項目 → 列を特定
-  ③ そのセルへ現在時刻 HH:mm を書き込み（追記/上書き）
-  ▼
-「Emeli T＆C」シート更新 → 画面にトースト表示
-```
+## 注意・調整
+- **「Could not find today's date row」** → `DATE_COL` か日付の形式を確認。今日の日付の行が必要。
+- **入る列がズレる** → `FIRST_SLOT_COL`、時刻が別行になる → `TIME_ROW_OFFSET` を調整（`testToday` で確認）。
+- **プルダウン（入力規則）** → 書き込む作業名がプルダウンの候補と一致していれば問題なし。規則が「無効な入力を拒否」になっている場合は候補名と完全一致させること。
+- **時刻を文字列でなく時刻値で入れたい** 等の要望があれば調整します。
+- コード修正後は **デプロイ → デプロイを管理 → 編集 → 新バージョン → デプロイ** で反映（URL は不変）。

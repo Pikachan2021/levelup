@@ -4,48 +4,41 @@
   <base target="_top">
   <meta charset="utf-8">
   <style>
-    :root { --accent: #2563eb; --accent2: #059669; }
     * { box-sizing: border-box; }
-    html, body { height: 100%; }
     body {
-      margin: 0; font-family: -apple-system, "Segoe UI", "Hiragino Sans", "Yu Gothic", sans-serif;
-      background: #f1f5f9; color: #0f172a;
-      display: flex; align-items: center; justify-content: center; padding: 24px;
+      margin: 0; font-family: -apple-system, "Segoe UI", "Hiragino Sans", sans-serif;
+      background: #f1f5f9; color: #0f172a; padding: 20px;
     }
-    .card {
-      background: #fff; border-radius: 16px; box-shadow: 0 10px 30px rgba(2,6,23,.12);
-      padding: 32px 40px 36px; width: 100%; max-width: 720px;
+    .wrap { max-width: 1000px; margin: 0 auto; }
+    .card { background:#fff; border-radius:14px; box-shadow:0 8px 24px rgba(2,6,23,.1); padding:22px 26px; }
+    .topbar { display:flex; align-items:baseline; justify-content:space-between; gap:12px; flex-wrap:wrap; }
+    .name { font-size:24px; font-weight:700; }
+    .date { font-size:15px; color:#64748b; }
+    .hint { font-size:13px; color:#94a3b8; margin:8px 0 18px; }
+    h4 { margin:18px 0 8px; font-size:13px; color:#64748b; }
+    .grid { display:grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap:10px; }
+    button.act {
+      padding:18px 10px; font-size:16px; font-weight:600; color:#fff; border:none;
+      border-radius:10px; cursor:pointer; background:#2563eb;
+      box-shadow:0 3px 8px rgba(37,99,235,.25); transition: filter .12s, transform .05s;
     }
-    .header { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 6px; }
-    .name { font-size: 26px; font-weight: 700; }
-    .date { font-size: 15px; color: #64748b; }
-    .hint { font-size: 13px; color: #94a3b8; margin-bottom: 24px; }
-    .buttons { display: flex; gap: 20px; }
-    button.item {
-      flex: 1; padding: 40px 16px; font-size: 24px; font-weight: 700;
-      color: #fff; border: none; border-radius: 14px; cursor: pointer;
-      background: var(--accent); box-shadow: 0 4px 12px rgba(37,99,235,.3);
-      transition: transform .06s ease, box-shadow .15s ease, filter .15s ease;
-    }
-    button.item:nth-child(2) { background: var(--accent2); box-shadow: 0 4px 12px rgba(5,150,105,.3); }
-    button.item:hover { filter: brightness(1.06); box-shadow: 0 6px 18px rgba(2,6,23,.22); }
-    button.item:active { transform: translateY(2px); }
-    button.item:disabled { opacity: .5; cursor: default; }
-    .sub { font-size: 14px; font-weight: 400; opacity: .9; display: block; margin-top: 8px; }
-    .footer { margin-top: 24px; display: flex; align-items: center; justify-content: space-between; gap: 16px; }
-    .undo {
-      background: #fff; color: #475569; border: 1px solid #cbd5e1; border-radius: 10px;
-      padding: 12px 18px; font-size: 15px; cursor: pointer;
-    }
-    .undo:hover { background: #f8fafc; }
-    #status { font-size: 16px; min-height: 24px; }
-    #status.ok { color: #047857; }
-    #status.err { color: #b91c1c; }
-    .error-box { background: #fef2f2; color: #991b1b; padding: 20px; border-radius: 12px; border: 1px solid #fecaca; }
-    code { background: #f1f5f9; padding: 2px 6px; border-radius: 4px; }
+    button.act:hover { filter:brightness(1.07); }
+    button.act:active { transform: translateY(1px); }
+    button.act:disabled { opacity:.5; cursor:default; }
+    button.act.other { background:#7c3aed; }
+    button.act.break { background:#0891b2; }
+    .footer { margin-top:22px; display:flex; align-items:center; justify-content:space-between; gap:12px; }
+    #status { font-size:16px; min-height:24px; }
+    #status.ok { color:#047857; }
+    #status.err { color:#b91c1c; }
+    .undo { background:#fff; color:#475569; border:1px solid #cbd5e1; border-radius:10px; padding:11px 16px; font-size:15px; cursor:pointer; }
+    .undo:hover { background:#f8fafc; }
+    .error-box { background:#fef2f2; color:#991b1b; padding:20px; border-radius:12px; border:1px solid #fecaca; }
+    code { background:#f1f5f9; padding:2px 6px; border-radius:4px; }
   </style>
 </head>
 <body>
+  <div class="wrap">
   <? if (!valid) { ?>
     <div class="card">
       <div class="error-box">
@@ -55,18 +48,24 @@
     </div>
   <? } else { ?>
     <div class="card">
-      <div class="header">
+      <div class="topbar">
         <div class="name"><?= staffName ?></div>
         <div class="date" id="today"></div>
       </div>
-      <div class="hint">Click a button to record the current time on today's row.</div>
+      <div class="hint">Tap the task you are starting. The current time is logged into the next slot for today.</div>
 
-      <div class="buttons">
-        <? for (var i = 0; i < items.length; i++) { ?>
-          <button class="item" onclick="punch('<?= items[i] ?>', this)">
-            <?= items[i] ?>
-            <span class="sub">Click to record current time</span>
-          </button>
+      <h4>WORK</h4>
+      <div class="grid">
+        <? for (var i = 0; i < workTasks.length; i++) { ?>
+          <button class="act" onclick="punch('<?= workTasks[i] ?>')"><?= workTasks[i] ?></button>
+        <? } ?>
+      </div>
+
+      <h4>BREAK / OTHER</h4>
+      <div class="grid">
+        <? for (var j = 0; j < otherTasks.length; j++) {
+             var isBreak = (otherTasks[j] === 'Lounas' || otherTasks[j] === 'Tauko'); ?>
+          <button class="act <?= isBreak ? 'break' : 'other' ?>" onclick="punch('<?= otherTasks[j] ?>')"><?= otherTasks[j] ?></button>
         <? } ?>
       </div>
 
@@ -79,7 +78,6 @@
     <script>
       var STAFF = '<?= staffKey ?>';
       var TOKEN = '<?= token ?>';
-      var lastItem = null;
 
       document.getElementById('today').textContent = formatToday();
 
@@ -89,37 +87,31 @@
         var months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
         return days[d.getDay()] + ', ' + months[d.getMonth()] + ' ' + d.getDate() + ', ' + d.getFullYear();
       }
-
-      function showStatus(msg, isErr) {
+      function showStatus(msg, err) {
         var s = document.getElementById('status');
-        s.textContent = msg;
-        s.className = isErr ? 'err' : 'ok';
+        s.textContent = msg; s.className = err ? 'err' : 'ok';
       }
-
       function setBusy(busy) {
         var btns = document.querySelectorAll('button');
         for (var i = 0; i < btns.length; i++) btns[i].disabled = busy;
       }
-
-      function punch(item, btn) {
-        lastItem = item;
+      function punch(task) {
         setBusy(true);
         showStatus('Recording…', false);
         google.script.run
           .withSuccessHandler(function (res) { setBusy(false); showStatus(res.message, !res.ok); })
           .withFailureHandler(function (err) { setBusy(false); showStatus('Connection error: ' + err.message, true); })
-          .recordPunch(STAFF, item, TOKEN);
+          .recordPunch(STAFF, task, TOKEN);
       }
-
       function undoLast() {
-        if (!lastItem) { showStatus('Nothing to undo yet', true); return; }
         setBusy(true);
         google.script.run
           .withSuccessHandler(function (res) { setBusy(false); showStatus(res.message, !res.ok); })
           .withFailureHandler(function (err) { setBusy(false); showStatus('Connection error: ' + err.message, true); })
-          .undoPunch(STAFF, lastItem, TOKEN);
+          .undoPunch(STAFF, TOKEN);
       }
     </script>
   <? } ?>
+  </div>
 </body>
 </html>
