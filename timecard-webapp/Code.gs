@@ -163,6 +163,21 @@ function columnLetter_(col) {
 }
 
 /**
+ * 一発診断。全タブの「名前・gid・サイズ」を出し、続けて今日の日付の場所を探す。
+ * これ1回の実行ログを貼ってもらえれば、gid=… のタブ名も今日の行も分かる。
+ */
+function diagnose() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var today = new Date();
+  Logger.log('=== diagnose  today=%s/%s ===', today.getMonth() + 1, today.getDate());
+  ss.getSheets().forEach(function (sh) {
+    Logger.log('TAB name="%s"  gid=%s  rows=%s  cols=%s',
+      sh.getName(), sh.getSheetId(), sh.getMaxRows(), sh.getMaxColumns());
+  });
+  scanForToday();
+}
+
+/**
  * 全タブをスキャンし「今日の日付」がどのシートのどの行・列にあるかを探す。
  * 本当に使われている当日ログのシート/位置を特定するための関数。
  * エディタで実行 → 実行ログの "HIT ..." 行をそのまま貼ってください。
