@@ -116,15 +116,50 @@ function undoPunch(staffKey, token) {
 }
 
 /**
- * 設定確認用。エディタで実行し、ログで「今日の行/次の空きスロット」を確認する。
- * （対象シートはコード内の staffKey を必要に応じて変更）
+ * 設定確認用。エディタで実行し、ログで「今日の行/次の空きスロット/セル内容」を確認する。
+ * 対象スタッフは下の staffKey を変えればよい（既定 'emeli' = Emeli シート）。
+ * 出たログをそのまま貼ってもらえれば、こちらで CONFIG を確定できます。
  */
 function testToday() {
-  var ctx = resolveSheet_('emeli');
-  var taskRow = findTodayRow_(ctx.sheet);
-  var col = taskRow ? findNextEmptySlot_(ctx.sheet, taskRow) : 0;
-  Logger.log('sheet=%s todayTaskRow=%s timeRow=%s nextSlotCol=%s',
-    ctx.sheet.getName(), taskRow, taskRow ? (taskRow + CONFIG.TIME_ROW_OFFSET) : '-', col);
+  var staffKey = 'emeli'; // ← 確認したいスタッフのキー
+  var info = getStaffInfo_(staffKey);
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName(info.sheet);
+
+  Logger.log('--- testToday ---');
+  Logger.log('all sheet tabs: %s', ss.getSheets().map(function (s) { return s.getName(); }).join(', '));
+  if (!sheet) { Logger.log('!! Sheet not found: %s', info.sheet); return; }
+  Logger.log('target sheet=%s  maxRows=%s  maxCols=%s', sheet.getName(), sheet.getMaxRows(), sheet.getMaxColumns());
+
+  var today = new Date();
+  Logger.log('today=%s (M/D = %s/%s)', today, today.getMonth() + 1, today.getDate());
+
+  var taskRow = findTodayRow_(sheet);
+  Logger.log('detected todayTaskRow=%s  (DATE_COL=%s)', taskRow, CONFIG.DATE_COL);
+
+  if (!taskRow) {
+    // 日付列の最初の方の値を出して書式を確認する
+    var sample = sheet.getRange(1, CONFIG.DATE_COL, Math.min(20, sheet.getLastRow()), 1).getValues();
+    Logger.log('DATE_COL first values: %s', JSON.stringify(sample));
+    return;
+  }
+
+  var timeRow = taskRow + CONFIG.TIME_ROW_OFFSET;
+  var n = Math.min(CONFIG.LAST_SLOT_COL, sheet.getMaxColumns()) - CONFIG.FIRST_SLOT_COL + 1;
+  var taskCells = sheet.getRange(taskRow, CONFIG.FIRST_SLOT_COL, 1, n).getValues()[0];
+  var timeCells = sheet.getRange(timeRow, CONFIG.FIRST_SLOT_COL, 1, n).getValues()[0];
+  var nextCol = findNextEmptySlot_(sheet, taskRow);
+
+  Logger.log('dateCell(A%s)=%s', taskRow, sheet.getRange(taskRow, CONFIG.DATE_COL).getValue());
+  Logger.log('taskRow(%s) C..: %s', taskRow, JSON.stringify(taskCells));
+  Logger.log('timeRow(%s) C..: %s', timeRow, JSON.stringify(timeCells));
+  Logger.log('nextEmptySlotCol=%s (col letter ~ %s)', nextCol, nextCol ? columnLetter_(nextCol) : '-');
+}
+
+function columnLetter_(col) {
+  var s = '';
+  while (col > 0) { var m = (col - 1) % 26; s = String.fromCharCode(65 + m) + s; col = (col - m - 1) / 26; }
+  return s;
 }
 
 // ===================== 内部ヘルパー =====================
