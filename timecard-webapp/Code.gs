@@ -19,10 +19,10 @@ var CONFIG = {
   // 不正書き込み防止用の合言葉。URL の &token= と一致しないと拒否する。必ず変更。
   TOKEN: 'CHANGE_ME_1234',
 
-  DATE_COL: 1,         // 日付が入っている列（A=1）＝作業名を書く行
+  DATE_COL: 1,         // 日付が入っている列（A=1）＝作業名を書く行（上の行）
   FIRST_SLOT_COL: 3,   // 最初のスロット列（C=3。B列は空き）
   LAST_SLOT_COL: 40,   // スロットを探す右端の列
-  TIME_ROW_OFFSET: -1, // 時刻を書く行 = 日付(作業)行 + この値（1つ上なら -1）
+  TIME_ROW_OFFSET: 1,  // 時刻を書く行 = 日付(作業)行 + この値（1つ下なら 1）
 
   // ボタンに出す作業項目。シートのプルダウン候補に合わせてある。
   TASKS: {
@@ -79,16 +79,16 @@ function doPunch_(staffKey, task) {
 
   var dateRow = findTodayRow_(sheet);
   if (!dateRow) throw new Error("Could not find today's date row");
-  var timeRow = dateRow + CONFIG.TIME_ROW_OFFSET;
+  var timeRow = dateRow + CONFIG.TIME_ROW_OFFSET; // 時刻はすぐ下の行
   if (timeRow < 1) throw new Error('Time row out of range');
 
-  // 次の空きスロット = 時刻行で最初に空いている列（時刻が貯まっていく行を基準にする）
-  var col = findNextEmptySlot_(sheet, timeRow);
+  // 次の空きスロット = 作業行・時刻行のうち右端の埋まった列の次（既存を上書きしない）
+  var col = nextPairedSlot_(sheet, dateRow, timeRow);
   if (!col) throw new Error('No empty slot left for today');
 
-  sheet.getRange(dateRow, col).setValue(task);        // 作業名 → 日付(作業)行
+  sheet.getRange(dateRow, col).setValue(task);        // 作業名 → 日付(作業)行（上）
   var timeCell = sheet.getRange(timeRow, col);
-  timeCell.setValue(new Date());                       // 現在時刻 → その1つ上の行（実日時）
+  timeCell.setValue(new Date());                       // 現在時刻 → その1つ下の行（実日時）
   // 時刻の表示書式を、同じ行の先頭スロットに合わせる（なければ既定のまま）
   try {
     var refFmt = sheet.getRange(timeRow, CONFIG.FIRST_SLOT_COL).getNumberFormat();
@@ -171,25 +171,38 @@ function getStaffInfo_(staffKey) {
   return null;
 }
 
-/** 日付列を上から探索し、今日に一致する行番号（=作業名の行）を返す。なければ 0。 */
+/**
+ * 日付列を上から探索し、今日に一致する行番号（=作業名の行）を返す。なければ 0。
+ * 判定は「スプレッドシートのタイムゾーン」で行う（＝シートに表示されている日付に合わせる）。
+ * これをしないと、21:00 等のオフセット付き日付値で1日ずれた行を拾ってしまう。
+ */
 function findTodayRow_(sheet) {
-  var today = new Date();
+  var tz = SpreadsheetApp.getActiveSpreadsheet().getSpreadsheetTimeZone();
+  var todayStr = Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd');
   var values = sheet.getRange(1, CONFIG.DATE_COL, sheet.getLastRow(), 1).getValues();
   for (var i = 0; i < values.length; i++) {
     var v = values[i][0];
     if (v === '' || v === null) continue;
-    if (sameDay_(v, today)) return i + 1;
+    if (v instanceof Date) {
+      if (Utilities.formatDate(v, tz, 'yyyy-MM-dd') === todayStr) return i + 1;
+    } else {
+      var m = String(v).match(/(\d{1,2})\s*[\/月]\s*(\d{1,2})/); // "6/9(火)" や "6月9日"
+      if (m) {
+        var md = ('0' + m[1]).slice(-2) + '-' + ('0' + m[2]).slice(-2);
+        if (todayStr.slice(5) === md) return i + 1;
+      }
+    }
   }
   return 0;
 }
 
-function sameDay_(v, today) {
-  if (v instanceof Date) {
-    return v.getFullYear() === today.getFullYear() && v.getMonth() === today.getMonth() && v.getDate() === today.getDate();
-  }
-  var m = String(v).match(/(\d{1,2})\s*[\/月]\s*(\d{1,2})/);
-  if (m) return parseInt(m[1], 10) === (today.getMonth() + 1) && parseInt(m[2], 10) === today.getDate();
-  return false;
+/** 作業行・時刻行のうち、右端の埋まった列の次の列を返す（既存を上書きしない）。なければ 0。 */
+function nextPairedSlot_(sheet, taskRow, timeRow) {
+  var lastTask = findLastFilledSlot_(sheet, taskRow);
+  var lastTime = findLastFilledSlot_(sheet, timeRow);
+  var col = Math.max(lastTask, lastTime, CONFIG.FIRST_SLOT_COL - 1) + 1;
+  if (col > Math.min(CONFIG.LAST_SLOT_COL, sheet.getMaxColumns())) return 0;
+  return col;
 }
 
 /** 指定行で FIRST..LAST のうち最初の空きスロット列を返す。なければ 0。 */
