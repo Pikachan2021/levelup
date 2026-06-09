@@ -212,13 +212,21 @@ function findTodayRow_(sheet) {
   return 0;
 }
 
-/** 作業行・時刻行のうち、右端の埋まった列の次の列を返す（既存を上書きしない）。なければ 0。 */
+/**
+ * 作業行・時刻行の両方が空いている最初の列を返す（既存を上書きしない）。なければ 0。
+ * 右端に数式等が入っていても、左から最初の「両方空き」を選ぶので影響を受けない。
+ */
 function nextPairedSlot_(sheet, taskRow, timeRow) {
-  var lastTask = findLastFilledSlot_(sheet, taskRow);
-  var lastTime = findLastFilledSlot_(sheet, timeRow);
-  var col = Math.max(lastTask, lastTime, CONFIG.FIRST_SLOT_COL - 1) + 1;
-  if (col > Math.min(CONFIG.LAST_SLOT_COL, sheet.getMaxColumns())) return 0;
-  return col;
+  var last = Math.min(CONFIG.LAST_SLOT_COL, sheet.getMaxColumns());
+  var n = last - CONFIG.FIRST_SLOT_COL + 1;
+  var taskVals = sheet.getRange(taskRow, CONFIG.FIRST_SLOT_COL, 1, n).getValues()[0];
+  var timeVals = sheet.getRange(timeRow, CONFIG.FIRST_SLOT_COL, 1, n).getValues()[0];
+  for (var i = 0; i < n; i++) {
+    var taskEmpty = (taskVals[i] === '' || taskVals[i] === null);
+    var timeEmpty = (timeVals[i] === '' || timeVals[i] === null);
+    if (taskEmpty && timeEmpty) return CONFIG.FIRST_SLOT_COL + i;
+  }
+  return 0;
 }
 
 /** 指定行で FIRST..LAST のうち最初の空きスロット列を返す。なければ 0。 */
