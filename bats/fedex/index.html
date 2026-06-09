@@ -45,9 +45,13 @@
 
 <p class="footer" id="foot"></p>
 <p class="no-print">
-  <button onclick="window.print()">🖨 印刷 / Tulosta</button>
+  <button id="run-btn" style="background:#5b8cff;color:#fff;border-color:#5b8cff;font-weight:600">▶ ワークフローを実行</button>
+  &nbsp;<button onclick="window.print()">🖨 印刷 / Tulosta</button>
   &nbsp;<a href="fedex_maksamattomat.html">元の静的版を開く (fedex_maksamattomat.html)</a>
 </p>
+<pre id="run-log" class="no-print" style="display:none; background:#070a14; color:#cfe; padding:12px 14px;
+     border-radius:10px; font-family:ui-monospace,Consolas,monospace; font-size:12.5px; line-height:1.55;
+     white-space:pre-wrap; max-height:300px; overflow:auto;"></pre>
 
 <script>
 function parseAmount(s) {
@@ -90,9 +94,36 @@ async function load() {
     '未払い ' + unpaid.length + ' 件 / 支払済み ' + (paidList.length || '?') + ' 件　(データ: bats/fedex/data/)';
   document.getElementById('foot').textContent =
     'Yhteensä: ' + unpaid.length + ' maksamatonta laskua' +
-    (withAmount < unpaid.length ? '（金額未取得の行は Python スクリプトで PDF/Billing から取得してください）' : '');
+    (withAmount < unpaid.length ? '（金額未取得の行は「▶ ワークフローを実行」または Python スクリプトで取得）' : '');
 }
 load();
+
+// ▶ 実行: ローカルサーバーの /api/run を叩き、ログを流して完了後にデータ再読込
+document.getElementById('run-btn').addEventListener('click', async () => {
+  const btn = document.getElementById('run-btn');
+  const log = document.getElementById('run-log');
+  btn.disabled = true; btn.textContent = '⏳ 実行中…';
+  log.style.display = 'block'; log.textContent = '';
+  try {
+    const res = await fetch('/api/run?bat=fedex', { method: 'POST' });
+    if (!res.ok) {
+      log.textContent = 'エラー: HTTP ' + res.status + ' ' + (await res.text());
+    } else {
+      const reader = res.body.getReader();
+      const dec = new TextDecoder();
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        log.textContent += dec.decode(value, { stream: true });
+        log.scrollTop = log.scrollHeight;
+      }
+    }
+  } catch (e) {
+    log.textContent += '\n通信エラー: ' + e + '\n（このページは start.bat / serve.py 経由の http://localhost で開いていますか？ファイルを直接開くと実行できません）';
+  }
+  btn.disabled = false; btn.textContent = '▶ ワークフローを実行';
+  await load(); // 最新データを反映
+});
 </script>
 </body>
 </html>

@@ -6,10 +6,23 @@
       "id": "fedex",
       "name": "FEDEX ワークフロー",
       "emoji": "📦",
-      "summary": "FedEx 未払い請求（maksamattomat laskut）のダッシュボード。Gmail / PDF / Billing Centre から集めた請求番号と金額を一覧表示・印刷できます。",
+      "summary": "FedEx 未払い請求（maksamattomat laskut）のワークフロー。Gmail から請求番号を集め、PDF/Billing から金額を取得してダッシュボードに表示します。",
       "entry": "fedex/index.html",
       "status": "active",
-      "tags": ["FedEx", "請求", "経理", "Amazon FBA"]
+      "tags": ["FedEx", "請求", "経理", "Amazon FBA"],
+      "run": {
+        "cwd": "fedex/data",
+        "steps": [
+          {
+            "label": "① Gmailから請求番号を収集（支払済みと照合）",
+            "cmd": ["{python}", "../scripts/fetch_fedex_invoices.py"]
+          },
+          {
+            "label": "② 未払い請求のPDFをDLして金額を抽出",
+            "cmd": ["{python}", "../scripts/fetch_fedex_amounts_v4.py"]
+          }
+        ]
+      }
     }
   ]
 }

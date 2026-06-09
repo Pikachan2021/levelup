@@ -13,21 +13,37 @@
   h1 { font-size:24px; margin:0 0 4px; }
   .sub { color:var(--muted); font-size:14px; margin:0; }
   main { max-width:980px; margin:0 auto; padding:16px 24px 48px; }
-  .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); gap:16px; margin-top:16px; }
-  a.card { display:block; text-decoration:none; color:inherit; background:var(--card);
-           border:1px solid var(--line); border-radius:14px; padding:18px; transition:.15s; }
-  a.card:hover { border-color:var(--accent); transform:translateY(-2px); }
+  .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(280px,1fr)); gap:16px; margin-top:16px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:18px; transition:.15s; }
+  .card:hover { border-color:var(--accent); }
   .emoji { font-size:30px; }
   .name { font-size:17px; font-weight:600; margin:8px 0 6px; }
-  .summary { color:var(--muted); font-size:13px; line-height:1.6; margin:0 0 12px; }
-  .tags { display:flex; flex-wrap:wrap; gap:6px; }
+  .summary { color:var(--muted); font-size:13px; line-height:1.6; margin:0 0 12px; min-height:42px; }
+  .tags { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:14px; }
   .tag { font-size:11px; color:var(--muted); border:1px solid var(--line); border-radius:999px; padding:2px 8px; }
   .status { float:right; font-size:11px; padding:2px 8px; border-radius:999px; }
   .status.active { background:#10331f; color:#5be58a; border:1px solid #1f5b39; }
   .status.wip { background:#332b10; color:#e5c95b; border:1px solid #5b4f1f; }
+  .actions { display:flex; gap:8px; }
+  button, a.btn { font-family:inherit; font-size:14px; padding:9px 14px; border-radius:10px; cursor:pointer;
+                  border:1px solid var(--line); text-decoration:none; display:inline-flex; align-items:center; gap:6px; }
+  .btn-run { background:var(--accent); color:#fff; border-color:var(--accent); font-weight:600; }
+  .btn-run:hover { filter:brightness(1.08); }
+  .btn-open { background:#222843; color:var(--txt); }
+  .btn-open:hover { border-color:var(--accent); }
   .empty { color:var(--muted); border:1px dashed var(--line); border-radius:14px; padding:24px; text-align:center; }
   footer { max-width:980px; margin:0 auto; padding:0 24px 40px; color:var(--muted); font-size:12px; }
   code { background:#000; padding:1px 6px; border-radius:6px; color:#bcd; }
+  /* overlay */
+  .overlay { position:fixed; inset:0; background:rgba(0,0,0,.6); display:none; align-items:center; justify-content:center; padding:20px; z-index:50; }
+  .overlay.show { display:flex; }
+  .panel { background:#0c0f1c; border:1px solid var(--line); border-radius:14px; width:min(820px,100%); max-height:86vh; display:flex; flex-direction:column; }
+  .panel h2 { font-size:16px; margin:0; padding:16px 18px; border-bottom:1px solid var(--line); display:flex; align-items:center; gap:8px; }
+  .panel .log { flex:1; overflow:auto; margin:0; padding:14px 18px; font-family:ui-monospace,Consolas,monospace; font-size:12.5px; line-height:1.55; white-space:pre-wrap; color:#cfe; background:#070a14; }
+  .panel .bar { padding:12px 18px; border-top:1px solid var(--line); display:flex; gap:8px; justify-content:flex-end; align-items:center; }
+  .spinner { width:14px; height:14px; border:2px solid #5b8cff44; border-top-color:var(--accent); border-radius:50%; animation:spin .8s linear infinite; }
+  @keyframes spin { to { transform:rotate(360deg); } }
+  .muted { color:var(--muted); font-size:12px; margin-right:auto; }
 </style>
 </head>
 <body>
@@ -40,31 +56,87 @@
   <div id="empty" class="empty" style="display:none">まだ Bat が登録されていません。<code>bats/registry.json</code> に追加してください。</div>
 </main>
 <footer>
-  ローカル専用。データは <code>bats/&lt;id&gt;/data/</code> 配下のファイルを読むだけで、Gmail/Drive/PC の元データには一切書き込みません。
+  ローカル専用。データは <code>bats/&lt;id&gt;/data/</code> 配下を読み書きするだけで、Gmail/Drive/PC の元データには直接書き込みません。<br>
+  「▶ 実行」は <code>registry.json</code> の <code>run</code> に書かれた手順をこのPC上で走らせます（FEDEXは Windows + Edge + Python が必要）。
 </footer>
+
+<!-- 実行ログ オーバーレイ -->
+<div class="overlay" id="overlay">
+  <div class="panel">
+    <h2 id="ov-title">実行ログ</h2>
+    <pre class="log" id="ov-log"></pre>
+    <div class="bar">
+      <span class="muted" id="ov-status"></span>
+      <a class="btn btn-open" id="ov-dash" href="#" style="display:none">📋 ダッシュボードを開く</a>
+      <button class="btn" id="ov-close">閉じる</button>
+    </div>
+  </div>
+</div>
+
 <script>
+const overlay = document.getElementById('overlay');
+const ovLog = document.getElementById('ov-log');
+const ovTitle = document.getElementById('ov-title');
+const ovStatus = document.getElementById('ov-status');
+const ovDash = document.getElementById('ov-dash');
+document.getElementById('ov-close').onclick = () => overlay.classList.remove('show');
+
+async function runBat(bat) {
+  ovTitle.innerHTML = '<span class="spinner"></span> ' + bat.name + ' を実行中…';
+  ovStatus.textContent = '実行中（FEDEXはブラウザが開きます。完了まで1〜2分かかることがあります）';
+  ovLog.textContent = '';
+  ovDash.style.display = 'none';
+  ovDash.href = 'bats/' + bat.entry;
+  overlay.classList.add('show');
+  try {
+    const res = await fetch('/api/run?bat=' + encodeURIComponent(bat.id), { method: 'POST' });
+    if (!res.ok) { ovLog.textContent = 'エラー: HTTP ' + res.status + ' ' + (await res.text()); }
+    else {
+      const reader = res.body.getReader();
+      const dec = new TextDecoder();
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        ovLog.textContent += dec.decode(value, { stream: true });
+        ovLog.scrollTop = ovLog.scrollHeight;
+      }
+    }
+  } catch (e) {
+    ovLog.textContent += '\n通信エラー: ' + e + '\n（サーバーは start.bat / serve.py で起動していますか？）';
+  }
+  ovTitle.innerHTML = '実行ログ — ' + bat.name;
+  ovStatus.textContent = '完了しました。';
+  ovDash.style.display = 'inline-flex';
+}
+
 async function load() {
   const grid = document.getElementById('grid');
   try {
-    const res = await fetch('bats/registry.json', { cache: 'no-store' });
-    const reg = await res.json();
+    const reg = await (await fetch('bats/registry.json', { cache: 'no-store' })).json();
     if (reg.description) document.getElementById('hub-desc').textContent = reg.description;
     if (reg.title) document.title = reg.title;
     const bats = reg.bats || [];
     if (!bats.length) { document.getElementById('empty').style.display = 'block'; return; }
     for (const b of bats) {
-      const a = document.createElement('a');
-      a.className = 'card';
-      a.href = 'bats/' + b.entry;
+      const card = document.createElement('div');
+      card.className = 'card';
       const st = b.status === 'active' ? 'active' : 'wip';
       const stLabel = b.status === 'active' ? '稼働中' : '準備中';
-      a.innerHTML =
+      const runBtn = b.run
+        ? '<button class="btn-run" data-run="' + b.id + '">▶ 実行</button>'
+        : '';
+      card.innerHTML =
         '<span class="status ' + st + '">' + stLabel + '</span>' +
         '<div class="emoji">' + (b.emoji || '🧩') + '</div>' +
         '<div class="name">' + b.name + '</div>' +
         '<p class="summary">' + (b.summary || '') + '</p>' +
-        '<div class="tags">' + (b.tags || []).map(t => '<span class="tag">' + t + '</span>').join('') + '</div>';
-      grid.appendChild(a);
+        '<div class="tags">' + (b.tags || []).map(t => '<span class="tag">' + t + '</span>').join('') + '</div>' +
+        '<div class="actions">' + runBtn +
+          '<a class="btn btn-open" href="bats/' + b.entry + '">📋 ダッシュボード</a>' +
+        '</div>';
+      const rb = card.querySelector('[data-run]');
+      if (rb) rb.onclick = () => runBat(b);
+      grid.appendChild(card);
     }
   } catch (e) {
     document.getElementById('empty').style.display = 'block';
