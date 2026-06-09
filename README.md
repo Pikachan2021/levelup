@@ -68,6 +68,9 @@ levelup/
    ```
 3. Bat Hub を再読み込み → カードが増えています。
 
+> 📖 コピペ用テンプレ・各項目の意味・`.bat` を起動する書き方などの詳細は
+> **[`bats/ADDING_A_BAT.md`](bats/ADDING_A_BAT.md)** にまとめてあります。
+
 ---
 
 ## FEDEX ワークフローについて
