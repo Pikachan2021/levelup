@@ -167,21 +167,21 @@ function columnLetter_(col) {
  * 「名前」シートと「名前T＆C」シートを並べてダンプする。実行ログを貼ってください。
  */
 function inspect() {
-  var targets = ['Markus', 'MarkusT＆C', ' Emeli', 'Emeli T＆C', 'Tuomas', 'TuomasT＆C'];
   var ss = SpreadsheetApp.getActiveSpreadsheet();
-  targets.forEach(function (name) {
+  var names = ['MarkusT＆C', 'Markus'];
+  names.forEach(function (name) {
     var sh = ss.getSheetByName(name);
-    if (!sh) { Logger.log('NO SHEET: "%s"', name); return; }
+    if (!sh) { Logger.log('NO SHEET "%s"', name); return; }
+    var ncols = Math.min(16, sh.getMaxColumns());
+    Logger.log('=== "%s"  header rows 1-6 ===', name);
+    var head = sh.getRange(1, 1, 6, ncols).getValues();
+    for (var i = 0; i < head.length; i++) Logger.log('  h%s: %s', i + 1, JSON.stringify(head[i]));
     var row = findTodayRow_(sh);
-    Logger.log('=== "%s"  todayRow=%s  cols=%s ===', name, row, sh.getMaxColumns());
+    Logger.log('--- "%s"  todayRow=%s  window (todayRow-3 .. +2) ---', name, row);
     if (!row) return;
-    var r0 = Math.max(1, row - 1);
-    var nrows = 4;
-    var ncols = Math.min(14, sh.getMaxColumns());
-    var vals = sh.getRange(r0, 1, nrows, ncols).getValues();
-    for (var i = 0; i < vals.length; i++) {
-      Logger.log('  row %s: %s', r0 + i, JSON.stringify(vals[i]));
-    }
+    var r0 = Math.max(1, row - 3);
+    var win = sh.getRange(r0, 1, 6, ncols).getValues();
+    for (var j = 0; j < win.length; j++) Logger.log('  r%s: %s', r0 + j, JSON.stringify(win[j]));
   });
 }
 
