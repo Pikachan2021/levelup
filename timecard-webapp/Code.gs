@@ -35,6 +35,8 @@ var CONFIG = {
 
   // スタッフ -> 表示名と書き込み先シート名（タブ名）
   // 各スタッフの「名前」シート（スロット式の方）に書き込む。
+  // ※ここに無い名前でも、ALLOW_ANY_SHEET=true なら ?staff=<タブ名> でそのまま使える
+  //   （新スタッフはタブを足して URL を配るだけ。コード編集は不要）。
   STAFF: {
     emeli:  { name: 'Eemeli', sheet: 'Emeli'  },
     tuomas: { name: 'Tuomas', sheet: 'Tuomas' },
@@ -42,7 +44,11 @@ var CONFIG = {
     matti:  { name: 'Matti',  sheet: 'Matti'  },
     juhani: { name: 'Juhani', sheet: 'Juhani' },
     dea:    { name: 'Dea',    sheet: 'Dea'    }
-  }
+  },
+
+  // true: STAFF 未登録のキーは「そのキー＝シート名」として自動的に受け付ける。
+  // false: STAFF に登録済みの名前だけ許可（より厳格）。
+  ALLOW_ANY_SHEET: true
 };
 // ================================================
 
@@ -50,7 +56,7 @@ var CONFIG = {
 function doGet(e) {
   var staffKey = (e && e.parameter && e.parameter.staff) ? String(e.parameter.staff) : '';
   var token = (e && e.parameter && e.parameter.token) ? String(e.parameter.token) : '';
-  var staff = CONFIG.STAFF[staffKey];
+  var staff = getStaffInfo_(staffKey);
 
   var t = HtmlService.createTemplateFromFile('Index');
   t.staffKey = staffKey;
@@ -129,8 +135,19 @@ function validateToken_(token) {
   }
 }
 
+/**
+ * staffKey から {name, sheet} を返す。
+ * STAFF に登録があればそれを、なければ（ALLOW_ANY_SHEET 時）キー自身をシート名扱い。
+ */
+function getStaffInfo_(staffKey) {
+  if (!staffKey) return null;
+  if (CONFIG.STAFF[staffKey]) return CONFIG.STAFF[staffKey];
+  if (CONFIG.ALLOW_ANY_SHEET) return { name: staffKey, sheet: staffKey };
+  return null;
+}
+
 function resolveSheet_(staffKey) {
-  var staff = CONFIG.STAFF[staffKey];
+  var staff = getStaffInfo_(staffKey);
   if (!staff) throw new Error('Unknown staff: ' + staffKey);
   var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(staff.sheet);
   if (!sheet) throw new Error('Sheet not found: ' + staff.sheet);
