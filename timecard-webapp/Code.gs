@@ -163,6 +163,29 @@ function columnLetter_(col) {
 }
 
 /**
+ * 今日の行まわりを実際に覗いて、どのシートのどの列・行に入れるか確定するための関数。
+ * 「名前」シートと「名前T＆C」シートを並べてダンプする。実行ログを貼ってください。
+ */
+function inspect() {
+  var targets = ['Markus', 'MarkusT＆C', ' Emeli', 'Emeli T＆C', 'Tuomas', 'TuomasT＆C'];
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  targets.forEach(function (name) {
+    var sh = ss.getSheetByName(name);
+    if (!sh) { Logger.log('NO SHEET: "%s"', name); return; }
+    var row = findTodayRow_(sh);
+    Logger.log('=== "%s"  todayRow=%s  cols=%s ===', name, row, sh.getMaxColumns());
+    if (!row) return;
+    var r0 = Math.max(1, row - 1);
+    var nrows = 4;
+    var ncols = Math.min(14, sh.getMaxColumns());
+    var vals = sh.getRange(r0, 1, nrows, ncols).getValues();
+    for (var i = 0; i < vals.length; i++) {
+      Logger.log('  row %s: %s', r0 + i, JSON.stringify(vals[i]));
+    }
+  });
+}
+
+/**
  * 一発診断。全タブの「名前・gid・サイズ」を出し、続けて今日の日付の場所を探す。
  * これ1回の実行ログを貼ってもらえれば、gid=… のタブ名も今日の行も分かる。
  */
