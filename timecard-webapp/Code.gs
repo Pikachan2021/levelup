@@ -162,6 +162,37 @@ function columnLetter_(col) {
   return s;
 }
 
+/**
+ * 全タブをスキャンし「今日の日付」がどのシートのどの行・列にあるかを探す。
+ * 本当に使われている当日ログのシート/位置を特定するための関数。
+ * エディタで実行 → 実行ログの "HIT ..." 行をそのまま貼ってください。
+ */
+function scanForToday() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var today = new Date();
+  var sheets = ss.getSheets();
+  Logger.log('--- scanForToday: %s/%s across %s sheets ---', today.getMonth() + 1, today.getDate(), sheets.length);
+  var hits = 0;
+  sheets.forEach(function (sh) {
+    var name = sh.getName();
+    var lastRow = sh.getLastRow();
+    var lastCol = Math.min(6, sh.getLastColumn()); // 先頭6列だけ調べる（日付は左端付近）
+    if (lastRow < 1 || lastCol < 1) return;
+    var vals;
+    try { vals = sh.getRange(1, 1, lastRow, lastCol).getValues(); }
+    catch (e) { Logger.log('skip %s (%s)', name, e.message); return; }
+    for (var r = 0; r < vals.length; r++) {
+      for (var c = 0; c < lastCol; c++) {
+        if (sameDay_(vals[r][c], today)) {
+          Logger.log('HIT sheet="%s" row=%s col=%s(%s) value=%s', name, r + 1, c + 1, columnLetter_(c + 1), vals[r][c]);
+          hits++;
+        }
+      }
+    }
+  });
+  Logger.log('--- scan done, %s hit(s) ---', hits);
+}
+
 // ===================== 内部ヘルパー =====================
 
 function validateToken_(token) {
