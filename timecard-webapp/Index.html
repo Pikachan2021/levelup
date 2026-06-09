@@ -97,19 +97,19 @@
         for (var i = 0; i < btns.length; i++) btns[i].disabled = busy;
       }
       function punch(task) {
-        setBusy(true);
-        showStatus('Recording…', false);
+        // 押した瞬間に反応（ボタンは止めない＝待たされない）。記録はバックグラウンドで実行。
+        showStatus('⏳ ' + task + ' …', false);
         google.script.run
-          .withSuccessHandler(function (res) { setBusy(false); if (res.ok && res.col) lastCol = res.col; showStatus(res.message, !res.ok); })
-          .withFailureHandler(function (err) { setBusy(false); showStatus('Connection error: ' + err.message, true); })
+          .withSuccessHandler(function (res) { if (res.ok && res.col) lastCol = res.col; showStatus(res.message, !res.ok); })
+          .withFailureHandler(function (err) { showStatus('Connection error: ' + err.message, true); })
           .recordPunch(STAFF, task, TOKEN);
       }
       function undoLast() {
         if (!lastCol) { showStatus('Nothing to undo yet', true); return; }
-        setBusy(true);
+        showStatus('⏳ undo …', false);
         google.script.run
-          .withSuccessHandler(function (res) { setBusy(false); if (res.ok) lastCol = 0; showStatus(res.message, !res.ok); })
-          .withFailureHandler(function (err) { setBusy(false); showStatus('Connection error: ' + err.message, true); })
+          .withSuccessHandler(function (res) { if (res.ok) lastCol = 0; showStatus(res.message, !res.ok); })
+          .withFailureHandler(function (err) { showStatus('Connection error: ' + err.message, true); })
           .undoPunch(STAFF, lastCol, TOKEN);
       }
     </script>

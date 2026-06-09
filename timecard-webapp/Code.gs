@@ -79,21 +79,17 @@ function doPunch_(staffKey, task) {
 
   var dateRow = findTodayRow_(sheet);
   if (!dateRow) throw new Error("Could not find today's date row");
-  var timeRow = dateRow + CONFIG.TIME_ROW_OFFSET; // 時刻はすぐ下の行
+  var timeRow = dateRow + CONFIG.TIME_ROW_OFFSET; // 時刻はすぐ下の行（隣接）
   if (timeRow < 1) throw new Error('Time row out of range');
 
-  // 次の空きスロット = 作業行・時刻行のうち右端の埋まった列の次（既存を上書きしない）
+  // 次の空きスロット（作業・時刻が両方空く最初の列）。読み込みは下でまとめて1回。
   var col = nextPairedSlot_(sheet, dateRow, timeRow);
   if (!col) throw new Error('No empty slot left for today');
 
-  sheet.getRange(dateRow, col).setValue(task);        // 作業名 → 日付(作業)行（上）
-  var timeCell = sheet.getRange(timeRow, col);
-  timeCell.setValue(new Date());                       // 現在時刻 → その1つ下の行（実日時）
-  // 時刻の表示書式を、同じ行の先頭スロットに合わせる（なければ既定のまま）
-  try {
-    var refFmt = sheet.getRange(timeRow, CONFIG.FIRST_SLOT_COL).getNumberFormat();
-    if (refFmt) timeCell.setNumberFormat(refFmt);
-  } catch (e) {}
+  // 作業名(上)と時刻(下)は隣り合う2行なので、1回の setValues でまとめて書く（高速化）。
+  sheet.getRange(Math.min(dateRow, timeRow), col, 2, 1)
+       .setValues(dateRow < timeRow ? [[task], [new Date()]] : [[new Date()], [task]]);
+  sheet.getRange(timeRow, col).setNumberFormat('H:mm:ss'); // 時刻表示（読み取りなしで固定指定）
 
   return { ok: true, message: '✓ ' + info.name + ' · ' + task + ' (slot ' + columnLetter_(col) + ')', col: col, name: info.name };
 }
@@ -195,18 +191,30 @@ function resolveStaff_(staffKey) {
 function findTodayRow_(sheet) {
   var tz = SpreadsheetApp.getActiveSpreadsheet().getSpreadsheetTimeZone();
   var todayStr = Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd');
+
+  // キャッシュ：同じシート・同じ日付なら、行スキャンを省いて即返す（高速化）。
+  var cache = CacheService.getScriptCache();
+  var key = 'row:' + sheet.getName() + ':' + todayStr;
+  var hit = cache.get(key);
+  if (hit) return parseInt(hit, 10);
+
   var values = sheet.getRange(1, CONFIG.DATE_COL, sheet.getLastRow(), 1).getValues();
   for (var i = 0; i < values.length; i++) {
     var v = values[i][0];
     if (v === '' || v === null) continue;
+    var found = 0;
     if (v instanceof Date) {
-      if (Utilities.formatDate(v, tz, 'yyyy-MM-dd') === todayStr) return i + 1;
+      if (Utilities.formatDate(v, tz, 'yyyy-MM-dd') === todayStr) found = i + 1;
     } else {
       var m = String(v).match(/(\d{1,2})\s*[\/月]\s*(\d{1,2})/); // "6/9(火)" や "6月9日"
       if (m) {
         var md = ('0' + m[1]).slice(-2) + '-' + ('0' + m[2]).slice(-2);
-        if (todayStr.slice(5) === md) return i + 1;
+        if (todayStr.slice(5) === md) found = i + 1;
       }
+    }
+    if (found) {
+      cache.put(key, String(found), 21600); // 6時間キャッシュ（日付が変わればキーも変わる）
+      return found;
     }
   }
   return 0;
@@ -219,11 +227,13 @@ function findTodayRow_(sheet) {
 function nextPairedSlot_(sheet, taskRow, timeRow) {
   var last = Math.min(CONFIG.LAST_SLOT_COL, sheet.getMaxColumns());
   var n = last - CONFIG.FIRST_SLOT_COL + 1;
-  var taskVals = sheet.getRange(taskRow, CONFIG.FIRST_SLOT_COL, 1, n).getValues()[0];
-  var timeVals = sheet.getRange(timeRow, CONFIG.FIRST_SLOT_COL, 1, n).getValues()[0];
+  var top = Math.min(taskRow, timeRow);
+  var block = sheet.getRange(top, CONFIG.FIRST_SLOT_COL, 2, n).getValues(); // 2行を1回で読む
+  var ti = (taskRow === top) ? 0 : 1;
+  var mi = (timeRow === top) ? 0 : 1;
   for (var i = 0; i < n; i++) {
-    var taskEmpty = (taskVals[i] === '' || taskVals[i] === null);
-    var timeEmpty = (timeVals[i] === '' || timeVals[i] === null);
+    var taskEmpty = (block[ti][i] === '' || block[ti][i] === null);
+    var timeEmpty = (block[mi][i] === '' || block[mi][i] === null);
     if (taskEmpty && timeEmpty) return CONFIG.FIRST_SLOT_COL + i;
   }
   return 0;
