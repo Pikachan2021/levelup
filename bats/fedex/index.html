@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FEDEX ワークフロー — 未払い請求 (Ayumu Oy)</title>
+<style>
+  body { font-family: -apple-system, "Segoe UI", "Hiragino Kaku Gothic ProN", Meiryo, Arial, sans-serif;
+         max-width: 820px; margin: 32px auto; padding: 20px; color:#1c2030; }
+  a.back { font-size:13px; color:#5b8cff; text-decoration:none; }
+  h1 { font-size: 20px; border-bottom: 2px solid #333; padding-bottom: 8px; margin-top:10px; }
+  .meta { color:#666; font-size:13px; }
+  .cards { display:flex; gap:12px; flex-wrap:wrap; margin:16px 0; }
+  .stat { background:#f4f6ff; border:1px solid #dde3ff; border-radius:12px; padding:12px 18px; }
+  .stat .n { font-size:22px; font-weight:700; }
+  .stat .l { font-size:12px; color:#667; }
+  table { width: 100%; border-collapse: collapse; margin-top: 8px; }
+  th, td { border: 1px solid #ccc; padding: 7px 12px; text-align: left; }
+  th { background: #f0f0f0; }
+  td.nr { font-family: monospace; font-size: 14px; }
+  td.amount { text-align: right; }
+  td.empty { color:#b00; font-size:12px; }
+  .footer { margin-top: 18px; font-size: 12px; color: #666; }
+  button { font-size:14px; padding:6px 14px; border-radius:8px; border:1px solid #99a; background:#fff; cursor:pointer; }
+  @media print { .no-print { display: none; } body { margin:0; } }
+</style>
+</head>
+<body>
+<a class="back no-print" href="../../index.html">← Bat Hub に戻る</a>
+<h1>📦 FedEx 未払い請求 — Ayumu Oy</h1>
+<p class="meta" id="meta">読み込み中…</p>
+
+<div class="cards no-print">
+  <div class="stat"><div class="n" id="s-unpaid">–</div><div class="l">未払い件数</div></div>
+  <div class="stat"><div class="n" id="s-paid">–</div><div class="l">支払済み件数</div></div>
+  <div class="stat"><div class="n" id="s-total">–</div><div class="l">未払い合計 (取得済み分)</div></div>
+</div>
+
+<table>
+  <thead>
+    <tr><th>#</th><th>Laskunnumero (請求番号)</th><th>Summa EUR (金額)</th><th>Maksettu (支払)</th></tr>
+  </thead>
+  <tbody id="rows"></tbody>
+</table>
+
+<p class="footer" id="foot"></p>
+<p class="no-print">
+  <button onclick="window.print()">🖨 印刷 / Tulosta</button>
+  &nbsp;<a href="fedex_maksamattomat.html">元の静的版を開く (fedex_maksamattomat.html)</a>
+</p>
+
+<script>
+function parseAmount(s) {
+  if (!s) return null;
+  const clean = String(s).replace(/\s/g, '').replace(/\./g, '').replace(',', '.');
+  const v = parseFloat(clean);
+  return isNaN(v) ? null : v;
+}
+async function load() {
+  let unpaid = [], paidList = [];
+  try {
+    unpaid = await (await fetch('data/fedex_unpaid_amounts.json', { cache: 'no-store' })).json();
+  } catch (e) {}
+  try {
+    const g = await (await fetch('data/fedex_gmail_result.json', { cache: 'no-store' })).json();
+    paidList = g.paid || [];
+  } catch (e) {}
+
+  const tbody = document.getElementById('rows');
+  let total = 0, withAmount = 0;
+  unpaid.forEach((r, i) => {
+    const amt = parseAmount(r.amount);
+    if (amt !== null) { total += amt; withAmount++; }
+    const tr = document.createElement('tr');
+    const amtCell = amt !== null
+      ? '<td class="amount">' + amt.toLocaleString('fi-FI', {minimumFractionDigits:2}) + '</td>'
+      : '<td class="amount empty">' + (r.amount || '—') + '</td>';
+    tr.innerHTML = '<td>' + (i + 1) + '</td>' +
+                   '<td class="nr">' + r.invoice + '</td>' +
+                   amtCell +
+                   '<td></td>';
+    tbody.appendChild(tr);
+  });
+
+  document.getElementById('s-unpaid').textContent = unpaid.length;
+  document.getElementById('s-paid').textContent = paidList.length || '–';
+  document.getElementById('s-total').textContent =
+    withAmount ? total.toLocaleString('fi-FI', {minimumFractionDigits:2}) + ' €' : '未取得';
+  document.getElementById('meta').textContent =
+    '未払い ' + unpaid.length + ' 件 / 支払済み ' + (paidList.length || '?') + ' 件　(データ: bats/fedex/data/)';
+  document.getElementById('foot').textContent =
+    'Yhteensä: ' + unpaid.length + ' maksamatonta laskua' +
+    (withAmount < unpaid.length ? '（金額未取得の行は Python スクリプトで PDF/Billing から取得してください）' : '');
+}
+load();
+</script>
+</body>
+</html>

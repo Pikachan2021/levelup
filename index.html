@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bat Hub — 業務ツール集</title>
+<style>
+  :root { --bg:#0f1220; --card:#1a1f33; --line:#2a3150; --txt:#e7ebff; --muted:#9aa3c7; --accent:#5b8cff; }
+  * { box-sizing: border-box; }
+  body { font-family: -apple-system, "Segoe UI", "Hiragino Kaku Gothic ProN", Meiryo, sans-serif;
+         margin:0; background:var(--bg); color:var(--txt); min-height:100vh; }
+  header { padding:32px 24px 8px; max-width:980px; margin:0 auto; }
+  h1 { font-size:24px; margin:0 0 4px; }
+  .sub { color:var(--muted); font-size:14px; margin:0; }
+  main { max-width:980px; margin:0 auto; padding:16px 24px 48px; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); gap:16px; margin-top:16px; }
+  a.card { display:block; text-decoration:none; color:inherit; background:var(--card);
+           border:1px solid var(--line); border-radius:14px; padding:18px; transition:.15s; }
+  a.card:hover { border-color:var(--accent); transform:translateY(-2px); }
+  .emoji { font-size:30px; }
+  .name { font-size:17px; font-weight:600; margin:8px 0 6px; }
+  .summary { color:var(--muted); font-size:13px; line-height:1.6; margin:0 0 12px; }
+  .tags { display:flex; flex-wrap:wrap; gap:6px; }
+  .tag { font-size:11px; color:var(--muted); border:1px solid var(--line); border-radius:999px; padding:2px 8px; }
+  .status { float:right; font-size:11px; padding:2px 8px; border-radius:999px; }
+  .status.active { background:#10331f; color:#5be58a; border:1px solid #1f5b39; }
+  .status.wip { background:#332b10; color:#e5c95b; border:1px solid #5b4f1f; }
+  .empty { color:var(--muted); border:1px dashed var(--line); border-radius:14px; padding:24px; text-align:center; }
+  footer { max-width:980px; margin:0 auto; padding:0 24px 40px; color:var(--muted); font-size:12px; }
+  code { background:#000; padding:1px 6px; border-radius:6px; color:#bcd; }
+</style>
+</head>
+<body>
+<header>
+  <h1>🦇 Bat Hub</h1>
+  <p class="sub" id="hub-desc">業務ツール（Bat）の詰め合わせ — ローカルホストで開く</p>
+</header>
+<main>
+  <div id="grid" class="grid"></div>
+  <div id="empty" class="empty" style="display:none">まだ Bat が登録されていません。<code>bats/registry.json</code> に追加してください。</div>
+</main>
+<footer>
+  ローカル専用。データは <code>bats/&lt;id&gt;/data/</code> 配下のファイルを読むだけで、Gmail/Drive/PC の元データには一切書き込みません。
+</footer>
+<script>
+async function load() {
+  const grid = document.getElementById('grid');
+  try {
+    const res = await fetch('bats/registry.json', { cache: 'no-store' });
+    const reg = await res.json();
+    if (reg.description) document.getElementById('hub-desc').textContent = reg.description;
+    if (reg.title) document.title = reg.title;
+    const bats = reg.bats || [];
+    if (!bats.length) { document.getElementById('empty').style.display = 'block'; return; }
+    for (const b of bats) {
+      const a = document.createElement('a');
+      a.className = 'card';
+      a.href = 'bats/' + b.entry;
+      const st = b.status === 'active' ? 'active' : 'wip';
+      const stLabel = b.status === 'active' ? '稼働中' : '準備中';
+      a.innerHTML =
+        '<span class="status ' + st + '">' + stLabel + '</span>' +
+        '<div class="emoji">' + (b.emoji || '🧩') + '</div>' +
+        '<div class="name">' + b.name + '</div>' +
+        '<p class="summary">' + (b.summary || '') + '</p>' +
+        '<div class="tags">' + (b.tags || []).map(t => '<span class="tag">' + t + '</span>').join('') + '</div>';
+      grid.appendChild(a);
+    }
+  } catch (e) {
+    document.getElementById('empty').style.display = 'block';
+    document.getElementById('empty').textContent = 'registry.json を読み込めませんでした: ' + e;
+  }
+}
+load();
+</script>
+</body>
+</html>

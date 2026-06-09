@@ -1,0 +1,10 @@
+# Python
+__pycache__/
+*.pyc
+
+# Local editor/agent settings
+.claude/settings.local.json
+
+# FedEx temp downloads (Windows side)
+FedEx_temp/
+fedex_billing_page.txt

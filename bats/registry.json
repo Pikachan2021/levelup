@@ -1,0 +1,15 @@
+{
+  "title": "Bat Hub — Ayumu Oy 業務ツール集",
+  "description": "ローカルホストで開く業務ツール（Bat）の詰め合わせ。新しいBatはこの registry.json に1ブロック追加するだけで増やせます。",
+  "bats": [
+    {
+      "id": "fedex",
+      "name": "FEDEX ワークフロー",
+      "emoji": "📦",
+      "summary": "FedEx 未払い請求（maksamattomat laskut）のダッシュボード。Gmail / PDF / Billing Centre から集めた請求番号と金額を一覧表示・印刷できます。",
+      "entry": "fedex/index.html",
+      "status": "active",
+      "tags": ["FedEx", "請求", "経理", "Amazon FBA"]
+    }
+  ]
+}
