@@ -41,8 +41,9 @@ var CONFIG = {
     dea:    { name: 'Dea',    sheet: 'DeaT&C'     }
   },
 
-  // true: STAFF 未登録のキーは「そのキー＝シート名」として受け付ける。
-  //   新スタッフは ?staff=<その人のT＆Cタブ名> で使える（例 ?staff=MiroT＆C ではなく実タブ名）。
+  // true: STAFF 未登録の名前でも、その名前から「名前T＆C」タブを自動で探して使う。
+  //   → 新スタッフは ?staff=名前 を渡すだけ（例 ?staff=Liisa → LiisaT＆C を自動で発見）。コード編集不要。
+  // false: STAFF に登録した人だけ許可（厳格運用）。
   ALLOW_ANY_SHEET: true
 };
 // ================================================
@@ -51,7 +52,7 @@ var CONFIG = {
 function doGet(e) {
   var staffKey = (e && e.parameter && e.parameter.staff) ? String(e.parameter.staff) : '';
   var token = (e && e.parameter && e.parameter.token) ? String(e.parameter.token) : '';
-  var staff = getStaffInfo_(staffKey);
+  var staff = resolveStaff_(staffKey);
 
   var t = HtmlService.createTemplateFromFile('Index');
   t.staffKey = staffKey;
@@ -72,10 +73,9 @@ function doGet(e) {
  * @return {{ok:boolean, message:string, col:number, name:string}}
  */
 function doPunch_(staffKey, task) {
-  var info = getStaffInfo_(staffKey);
-  if (!info) throw new Error('Unknown staff: ' + staffKey);
-  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(info.sheet);
-  if (!sheet) throw new Error('Sheet not found: ' + info.sheet);
+  var info = resolveStaff_(staffKey);
+  if (!info) throw new Error('Unknown staff / sheet not found: ' + staffKey);
+  var sheet = info.sheet;
 
   var dateRow = findTodayRow_(sheet);
   if (!dateRow) throw new Error("Could not find today's date row");
@@ -110,10 +110,9 @@ function recordPunch(staffKey, task, token) {
 function undoPunch(staffKey, col, token) {
   return withLock_(function () {
     validateToken_(token);
-    var info = getStaffInfo_(staffKey);
-    if (!info) throw new Error('Unknown staff: ' + staffKey);
-    var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(info.sheet);
-    if (!sheet) throw new Error('Sheet not found: ' + info.sheet);
+    var info = resolveStaff_(staffKey);
+    if (!info) throw new Error('Unknown staff / sheet not found: ' + staffKey);
+    var sheet = info.sheet;
     var dateRow = findTodayRow_(sheet);
     if (!dateRow) throw new Error("Could not find today's date row");
     var timeRow = dateRow + CONFIG.TIME_ROW_OFFSET;
@@ -164,10 +163,27 @@ function validateToken_(token) {
   }
 }
 
-function getStaffInfo_(staffKey) {
+/**
+ * staffKey から {name, sheet(=Sheetオブジェクト)} を返す。見つからなければ null。
+ * - STAFF に登録があればその sheet 名を使う。
+ * - 未登録でも ALLOW_ANY_SHEET なら、キーから「名前T＆C」タブを自動で探す
+ *   （例 ?staff=Liisa → "LiisaT＆C" / "Liisa T＆C" / "LiisaT&C" などを順に探す）。
+ *   → 新スタッフはタブを用意して ?staff=名前 を渡すだけ。コード編集は不要。
+ */
+function resolveStaff_(staffKey) {
   if (!staffKey) return null;
-  if (CONFIG.STAFF[staffKey]) return CONFIG.STAFF[staffKey];
-  if (CONFIG.ALLOW_ANY_SHEET) return { name: staffKey, sheet: staffKey };
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var cfg = CONFIG.STAFF[staffKey];
+  if (cfg) {
+    var sh = ss.getSheetByName(cfg.sheet);
+    return sh ? { name: cfg.name, sheet: sh } : null;
+  }
+  if (!CONFIG.ALLOW_ANY_SHEET) return null;
+  var candidates = [staffKey, staffKey + 'T＆C', staffKey + ' T＆C', staffKey + 'T&C', staffKey + ' T&C'];
+  for (var i = 0; i < candidates.length; i++) {
+    var s = ss.getSheetByName(candidates[i]);
+    if (s) return { name: staffKey, sheet: s };
+  }
   return null;
 }
 
