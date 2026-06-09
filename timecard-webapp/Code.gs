@@ -38,7 +38,7 @@ var CONFIG = {
   // ※ここに無い名前でも、ALLOW_ANY_SHEET=true なら ?staff=<タブ名> でそのまま使える
   //   （新スタッフはタブを足して URL を配るだけ。コード編集は不要）。
   STAFF: {
-    emeli:  { name: 'Eemeli', sheet: 'Emeli'  },
+    emeli:  { name: 'Eemeli', sheet: 'Eemeli' },
     tuomas: { name: 'Tuomas', sheet: 'Tuomas' },
     markus: { name: 'Markus', sheet: 'Markus' },
     matti:  { name: 'Matti',  sheet: 'Matti'  },
