@@ -1,17 +1,17 @@
 /**
- * ワンタップ作業ログ Web アプリ（Google Apps Script）— スロット方式
+ * ワンタップ作業ログ Web アプリ（Google Apps Script）— 名前T＆Cシート方式
  * ------------------------------------------------------------
  * スタッフは自分専用 URL を開き、作業ボタンをクリックするだけで、
- * 対象シートの「今日の行」の次の空きスロット（列）に
- *   ・上段の行 … 作業名
- *   ・下段の行 … 現在時刻
- * が入る（実シートと同じ「1日=2行・左から順に埋める」レイアウト）。
+ * 「名前T＆C」シートの今日の行に、次の空きスロット（列 C, D, E…）として
+ *   ・作業名 → 日付のある行（＝下の行）
+ *   ・現在時刻 → その1つ上の行
+ * が入る（実シートの構造に合わせた配置）。
  *
  * URL 例:
- *   https://script.google.com/.../exec?staff=emeli&token=xxxx
+ *   https://script.google.com/.../exec?staff=markus&token=xxxx
  *
- * ※ 行・列の位置はシートに合わせて下の CONFIG で調整する。
- *    まずはテスト用コピーで testToday() を実行して検出結果を確認すること。
+ * まずはテスト用コピーで testWrite() を実行して、MarkusT＆C に
+ * 正しく入るか確認すること。
  */
 
 // ===================== 設定 =====================
@@ -19,35 +19,30 @@ var CONFIG = {
   // 不正書き込み防止用の合言葉。URL の &token= と一致しないと拒否する。必ず変更。
   TOKEN: 'CHANGE_ME_1234',
 
-  TIME_ZONE: 'Europe/Helsinki',
-  TIME_FORMAT: 'HH:mm:ss',   // 記録する時刻の書式（例 09:39:32）
+  DATE_COL: 1,         // 日付が入っている列（A=1）＝作業名を書く行
+  FIRST_SLOT_COL: 3,   // 最初のスロット列（C=3。B列は空き）
+  LAST_SLOT_COL: 40,   // スロットを探す右端の列
+  TIME_ROW_OFFSET: -1, // 時刻を書く行 = 日付(作業)行 + この値（1つ上なら -1）
 
-  DATE_COL: 1,        // 日付が入っている列（A=1）
-  FIRST_SLOT_COL: 3,  // 最初のスロット列（C=3）
-  LAST_SLOT_COL: 40,  // スロットを探す右端の列（多めでOK）
-  TIME_ROW_OFFSET: 1, // 時刻を書く行 = 作業行 + この値（下の行なら 1）
-
-  // ボタンに出す作業項目（UI 表示・英語）。シートのプルダウン候補と一致させる。
+  // ボタンに出す作業項目。シートのプルダウン候補に合わせてある。
   TASKS: {
     work:  ['morning meeting', 'Order printing', 'Picking', 'Packing', 'Labeling', 'Scanning', 'Company work', 'other work'],
-    other: ['Teaching', 'meeting', 'Registering', 'cleaning', 'shelving', 'trash', 'Lounas', 'Tauko']
+    other: ['Lounas', 'Tauko', 'Teaching', 'meeting', 'Registering', 'cleaning', 'shelving', 'trash', 'Finish working']
   },
 
-  // スタッフ -> 表示名と書き込み先シート名（タブ名）
-  // 各スタッフの「名前」シート（スロット式の方）に書き込む。
-  // ※ここに無い名前でも、ALLOW_ANY_SHEET=true なら ?staff=<タブ名> でそのまま使える
-  //   （新スタッフはタブを足して URL を配るだけ。コード編集は不要）。
+  // スタッフ -> 表示名と書き込み先シート名（実タブ名に厳密一致させること）
+  //   ※ ＆ は全角、DeaT&C だけ半角 & なので注意（diagnose のログより）
   STAFF: {
-    emeli:  { name: 'Eemeli', sheet: 'Eemeli' },
-    tuomas: { name: 'Tuomas', sheet: 'Tuomas' },
-    markus: { name: 'Markus', sheet: 'Markus' },
-    matti:  { name: 'Matti',  sheet: 'Matti'  },
-    juhani: { name: 'Juhani', sheet: 'Juhani' },
-    dea:    { name: 'Dea',    sheet: 'Dea'    }
+    emeli:  { name: 'Eemeli', sheet: 'Emeli T＆C'  },
+    tuomas: { name: 'Tuomas', sheet: 'TuomasT＆C' },
+    markus: { name: 'Markus', sheet: 'MarkusT＆C' },
+    matti:  { name: 'Matti',  sheet: 'MattiT＆C'  },
+    juhani: { name: 'Juhani', sheet: 'JuhaniT＆C' },
+    dea:    { name: 'Dea',    sheet: 'DeaT&C'     }
   },
 
-  // true: STAFF 未登録のキーは「そのキー＝シート名」として自動的に受け付ける。
-  // false: STAFF に登録済みの名前だけ許可（より厳格）。
+  // true: STAFF 未登録のキーは「そのキー＝シート名」として受け付ける。
+  //   新スタッフは ?staff=<その人のT＆Cタブ名> で使える（例 ?staff=MiroT＆C ではなく実タブ名）。
   ALLOW_ANY_SHEET: true
 };
 // ================================================
@@ -73,162 +68,92 @@ function doGet(e) {
 }
 
 /**
- * 作業を打刻する。今日の行の次の空きスロットに作業名を、その下に現在時刻を書く。
- * @return {{ok:boolean, message:string, slot:number}}
+ * 打刻本体（共通）。今日の行の次の空きスロットに、作業名と現在時刻を書く。
+ * @return {{ok:boolean, message:string, col:number, name:string}}
  */
+function doPunch_(staffKey, task) {
+  var info = getStaffInfo_(staffKey);
+  if (!info) throw new Error('Unknown staff: ' + staffKey);
+  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(info.sheet);
+  if (!sheet) throw new Error('Sheet not found: ' + info.sheet);
+
+  var dateRow = findTodayRow_(sheet);
+  if (!dateRow) throw new Error("Could not find today's date row");
+  var timeRow = dateRow + CONFIG.TIME_ROW_OFFSET;
+  if (timeRow < 1) throw new Error('Time row out of range');
+
+  // 次の空きスロット = 時刻行で最初に空いている列（時刻が貯まっていく行を基準にする）
+  var col = findNextEmptySlot_(sheet, timeRow);
+  if (!col) throw new Error('No empty slot left for today');
+
+  sheet.getRange(dateRow, col).setValue(task);        // 作業名 → 日付(作業)行
+  var timeCell = sheet.getRange(timeRow, col);
+  timeCell.setValue(new Date());                       // 現在時刻 → その1つ上の行（実日時）
+  // 時刻の表示書式を、同じ行の先頭スロットに合わせる（なければ既定のまま）
+  try {
+    var refFmt = sheet.getRange(timeRow, CONFIG.FIRST_SLOT_COL).getNumberFormat();
+    if (refFmt) timeCell.setNumberFormat(refFmt);
+  } catch (e) {}
+
+  return { ok: true, message: '✓ ' + info.name + ' · ' + task + ' (slot ' + columnLetter_(col) + ')', col: col, name: info.name };
+}
+
+/** Web から呼ばれる打刻（token チェック＋ロック付き）。 */
 function recordPunch(staffKey, task, token) {
   return withLock_(function () {
     validateToken_(token);
-    var ctx = resolveSheet_(staffKey);
-    var taskRow = findTodayRow_(ctx.sheet);
-    if (!taskRow) throw new Error("Could not find today's date row");
-
-    var col = findNextEmptySlot_(ctx.sheet, taskRow);
-    if (!col) throw new Error('No empty slot left for today');
-
-    var now = Utilities.formatDate(new Date(), CONFIG.TIME_ZONE, CONFIG.TIME_FORMAT);
-    ctx.sheet.getRange(taskRow, col).setValue(task);
-    ctx.sheet.getRange(taskRow + CONFIG.TIME_ROW_OFFSET, col).setValue(now);
-
-    var slotNo = col - CONFIG.FIRST_SLOT_COL + 1;
-    return { ok: true, message: '✓ ' + task + ' · ' + now + ' (slot ' + slotNo + ')', slot: slotNo };
+    return doPunch_(staffKey, task);
   });
 }
 
-/** 直前（今日の一番右の埋まったスロット）を取り消す。 */
-function undoPunch(staffKey, token) {
+/** 直前のスロットを取り消す。col はクライアントが覚えている直近の列。 */
+function undoPunch(staffKey, col, token) {
   return withLock_(function () {
     validateToken_(token);
-    var ctx = resolveSheet_(staffKey);
-    var taskRow = findTodayRow_(ctx.sheet);
-    if (!taskRow) throw new Error("Could not find today's date row");
+    var info = getStaffInfo_(staffKey);
+    if (!info) throw new Error('Unknown staff: ' + staffKey);
+    var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(info.sheet);
+    if (!sheet) throw new Error('Sheet not found: ' + info.sheet);
+    var dateRow = findTodayRow_(sheet);
+    if (!dateRow) throw new Error("Could not find today's date row");
+    var timeRow = dateRow + CONFIG.TIME_ROW_OFFSET;
 
-    var col = findLastFilledSlot_(ctx.sheet, taskRow);
-    if (!col) return { ok: false, message: 'Nothing to undo', slot: 0 };
+    var c = parseInt(col, 10);
+    if (!c) c = findLastFilledSlot_(sheet, timeRow); // 指定が無ければ一番右
+    if (!c) return { ok: false, message: 'Nothing to undo', col: 0 };
 
-    var task = ctx.sheet.getRange(taskRow, col).getValue();
-    ctx.sheet.getRange(taskRow, col).clearContent();
-    ctx.sheet.getRange(taskRow + CONFIG.TIME_ROW_OFFSET, col).clearContent();
-
-    var slotNo = col - CONFIG.FIRST_SLOT_COL + 1;
-    return { ok: true, message: '↩ removed ' + task + ' (slot ' + slotNo + ')', slot: slotNo };
+    var task = sheet.getRange(dateRow, c).getValue();
+    sheet.getRange(dateRow, c).clearContent();
+    sheet.getRange(timeRow, c).clearContent();
+    return { ok: true, message: '↩ removed ' + (task || '') + ' (slot ' + columnLetter_(c) + ')', col: c };
   });
 }
 
-/**
- * 設定確認用。エディタで実行し、ログで「今日の行/次の空きスロット/セル内容」を確認する。
- * 対象スタッフは下の staffKey を変えればよい（既定 'emeli' = Emeli シート）。
- * 出たログをそのまま貼ってもらえれば、こちらで CONFIG を確定できます。
- */
-function testToday() {
-  var staffKey = 'emeli'; // ← 確認したいスタッフのキー
-  var info = getStaffInfo_(staffKey);
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
-  var sheet = ss.getSheetByName(info.sheet);
+// ===================== テスト・診断 =====================
 
-  Logger.log('--- testToday ---');
-  Logger.log('all sheet tabs: %s', ss.getSheets().map(function (s) { return s.getName(); }).join(', '));
-  if (!sheet) { Logger.log('!! Sheet not found: %s', info.sheet); return; }
-  Logger.log('target sheet=%s  maxRows=%s  maxCols=%s', sheet.getName(), sheet.getMaxRows(), sheet.getMaxColumns());
-
-  var today = new Date();
-  Logger.log('today=%s (M/D = %s/%s)', today, today.getMonth() + 1, today.getDate());
-
-  var taskRow = findTodayRow_(sheet);
-  Logger.log('detected todayTaskRow=%s  (DATE_COL=%s)', taskRow, CONFIG.DATE_COL);
-
-  if (!taskRow) {
-    // 日付列の最初の方の値を出して書式を確認する
-    var sample = sheet.getRange(1, CONFIG.DATE_COL, Math.min(20, sheet.getLastRow()), 1).getValues();
-    Logger.log('DATE_COL first values: %s', JSON.stringify(sample));
-    return;
-  }
-
-  var timeRow = taskRow + CONFIG.TIME_ROW_OFFSET;
-  var n = Math.min(CONFIG.LAST_SLOT_COL, sheet.getMaxColumns()) - CONFIG.FIRST_SLOT_COL + 1;
-  var taskCells = sheet.getRange(taskRow, CONFIG.FIRST_SLOT_COL, 1, n).getValues()[0];
-  var timeCells = sheet.getRange(timeRow, CONFIG.FIRST_SLOT_COL, 1, n).getValues()[0];
-  var nextCol = findNextEmptySlot_(sheet, taskRow);
-
-  Logger.log('dateCell(A%s)=%s', taskRow, sheet.getRange(taskRow, CONFIG.DATE_COL).getValue());
-  Logger.log('taskRow(%s) C..: %s', taskRow, JSON.stringify(taskCells));
-  Logger.log('timeRow(%s) C..: %s', timeRow, JSON.stringify(timeCells));
-  Logger.log('nextEmptySlotCol=%s (col letter ~ %s)', nextCol, nextCol ? columnLetter_(nextCol) : '-');
+/** コピーで実行 → MarkusT＆C に「Packing＋現在時刻」を1件テスト書き込み。 */
+function testWrite() {
+  var res = doPunch_('markus', 'Packing');
+  Logger.log('testWrite -> %s', JSON.stringify(res));
 }
 
-function columnLetter_(col) {
-  var s = '';
-  while (col > 0) { var m = (col - 1) % 26; s = String.fromCharCode(65 + m) + s; col = (col - m - 1) / 26; }
-  return s;
-}
-
-/**
- * 今日の行まわりを実際に覗いて、どのシートのどの列・行に入れるか確定するための関数。
- * 「名前」シートと「名前T＆C」シートを並べてダンプする。実行ログを貼ってください。
- */
+/** 今日の行まわりを確認（MarkusT＆C と Markus のヘッダー＋今日付近）。 */
 function inspect() {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
-  var names = ['MarkusT＆C', 'Markus'];
-  names.forEach(function (name) {
+  ['MarkusT＆C', 'Markus'].forEach(function (name) {
     var sh = ss.getSheetByName(name);
     if (!sh) { Logger.log('NO SHEET "%s"', name); return; }
     var ncols = Math.min(16, sh.getMaxColumns());
-    Logger.log('=== "%s"  header rows 1-6 ===', name);
+    Logger.log('=== "%s" header rows 1-6 ===', name);
     var head = sh.getRange(1, 1, 6, ncols).getValues();
     for (var i = 0; i < head.length; i++) Logger.log('  h%s: %s', i + 1, JSON.stringify(head[i]));
     var row = findTodayRow_(sh);
-    Logger.log('--- "%s"  todayRow=%s  window (todayRow-3 .. +2) ---', name, row);
+    Logger.log('--- "%s" todayRow=%s window ---', name, row);
     if (!row) return;
     var r0 = Math.max(1, row - 3);
     var win = sh.getRange(r0, 1, 6, ncols).getValues();
     for (var j = 0; j < win.length; j++) Logger.log('  r%s: %s', r0 + j, JSON.stringify(win[j]));
   });
-}
-
-/**
- * 一発診断。全タブの「名前・gid・サイズ」を出し、続けて今日の日付の場所を探す。
- * これ1回の実行ログを貼ってもらえれば、gid=… のタブ名も今日の行も分かる。
- */
-function diagnose() {
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
-  var today = new Date();
-  Logger.log('=== diagnose  today=%s/%s ===', today.getMonth() + 1, today.getDate());
-  ss.getSheets().forEach(function (sh) {
-    Logger.log('TAB name="%s"  gid=%s  rows=%s  cols=%s',
-      sh.getName(), sh.getSheetId(), sh.getMaxRows(), sh.getMaxColumns());
-  });
-  scanForToday();
-}
-
-/**
- * 全タブをスキャンし「今日の日付」がどのシートのどの行・列にあるかを探す。
- * 本当に使われている当日ログのシート/位置を特定するための関数。
- * エディタで実行 → 実行ログの "HIT ..." 行をそのまま貼ってください。
- */
-function scanForToday() {
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
-  var today = new Date();
-  var sheets = ss.getSheets();
-  Logger.log('--- scanForToday: %s/%s across %s sheets ---', today.getMonth() + 1, today.getDate(), sheets.length);
-  var hits = 0;
-  sheets.forEach(function (sh) {
-    var name = sh.getName();
-    var lastRow = sh.getLastRow();
-    var lastCol = Math.min(6, sh.getLastColumn()); // 先頭6列だけ調べる（日付は左端付近）
-    if (lastRow < 1 || lastCol < 1) return;
-    var vals;
-    try { vals = sh.getRange(1, 1, lastRow, lastCol).getValues(); }
-    catch (e) { Logger.log('skip %s (%s)', name, e.message); return; }
-    for (var r = 0; r < vals.length; r++) {
-      for (var c = 0; c < lastCol; c++) {
-        if (sameDay_(vals[r][c], today)) {
-          Logger.log('HIT sheet="%s" row=%s col=%s(%s) value=%s', name, r + 1, c + 1, columnLetter_(c + 1), vals[r][c]);
-          hits++;
-        }
-      }
-    }
-  });
-  Logger.log('--- scan done, %s hit(s) ---', hits);
 }
 
 // ===================== 内部ヘルパー =====================
@@ -239,10 +164,6 @@ function validateToken_(token) {
   }
 }
 
-/**
- * staffKey から {name, sheet} を返す。
- * STAFF に登録があればそれを、なければ（ALLOW_ANY_SHEET 時）キー自身をシート名扱い。
- */
 function getStaffInfo_(staffKey) {
   if (!staffKey) return null;
   if (CONFIG.STAFF[staffKey]) return CONFIG.STAFF[staffKey];
@@ -250,15 +171,7 @@ function getStaffInfo_(staffKey) {
   return null;
 }
 
-function resolveSheet_(staffKey) {
-  var staff = getStaffInfo_(staffKey);
-  if (!staff) throw new Error('Unknown staff: ' + staffKey);
-  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(staff.sheet);
-  if (!sheet) throw new Error('Sheet not found: ' + staff.sheet);
-  return { sheet: sheet, staffName: staff.name };
-}
-
-/** 日付列を上から探索し、今日に一致する行番号（=作業行）を返す。なければ 0。 */
+/** 日付列を上から探索し、今日に一致する行番号（=作業名の行）を返す。なければ 0。 */
 function findTodayRow_(sheet) {
   var today = new Date();
   var values = sheet.getRange(1, CONFIG.DATE_COL, sheet.getLastRow(), 1).getValues();
@@ -270,45 +183,48 @@ function findTodayRow_(sheet) {
   return 0;
 }
 
-/** セル値（Date / 数値 / "6/8(月)" 等の文字列）が today と同じ月日かどうか。 */
 function sameDay_(v, today) {
   if (v instanceof Date) {
     return v.getFullYear() === today.getFullYear() && v.getMonth() === today.getMonth() && v.getDate() === today.getDate();
   }
-  var m = String(v).match(/(\d{1,2})\s*[\/月]\s*(\d{1,2})/); // "6/8" や "6月8日"
-  if (m) {
-    return parseInt(m[1], 10) === (today.getMonth() + 1) && parseInt(m[2], 10) === today.getDate();
-  }
+  var m = String(v).match(/(\d{1,2})\s*[\/月]\s*(\d{1,2})/);
+  if (m) return parseInt(m[1], 10) === (today.getMonth() + 1) && parseInt(m[2], 10) === today.getDate();
   return false;
 }
 
-/** 作業行で FIRST..LAST のうち最初の空きスロット列を返す。なければ 0。 */
-function findNextEmptySlot_(sheet, taskRow) {
+/** 指定行で FIRST..LAST のうち最初の空きスロット列を返す。なければ 0。 */
+function findNextEmptySlot_(sheet, row) {
   var last = Math.min(CONFIG.LAST_SLOT_COL, sheet.getMaxColumns());
   var n = last - CONFIG.FIRST_SLOT_COL + 1;
-  var row = sheet.getRange(taskRow, CONFIG.FIRST_SLOT_COL, 1, n).getValues()[0];
-  for (var i = 0; i < row.length; i++) {
-    if (row[i] === '' || row[i] === null) return CONFIG.FIRST_SLOT_COL + i;
+  var vals = sheet.getRange(row, CONFIG.FIRST_SLOT_COL, 1, n).getValues()[0];
+  for (var i = 0; i < vals.length; i++) {
+    if (vals[i] === '' || vals[i] === null) return CONFIG.FIRST_SLOT_COL + i;
   }
   return 0;
 }
 
-/** 作業行で一番右の埋まったスロット列を返す。なければ 0。 */
-function findLastFilledSlot_(sheet, taskRow) {
+/** 指定行で一番右の埋まったスロット列を返す。なければ 0。 */
+function findLastFilledSlot_(sheet, row) {
   var last = Math.min(CONFIG.LAST_SLOT_COL, sheet.getMaxColumns());
   var n = last - CONFIG.FIRST_SLOT_COL + 1;
-  var row = sheet.getRange(taskRow, CONFIG.FIRST_SLOT_COL, 1, n).getValues()[0];
-  for (var i = row.length - 1; i >= 0; i--) {
-    if (row[i] !== '' && row[i] !== null) return CONFIG.FIRST_SLOT_COL + i;
+  var vals = sheet.getRange(row, CONFIG.FIRST_SLOT_COL, 1, n).getValues()[0];
+  for (var i = vals.length - 1; i >= 0; i--) {
+    if (vals[i] !== '' && vals[i] !== null) return CONFIG.FIRST_SLOT_COL + i;
   }
   return 0;
+}
+
+function columnLetter_(col) {
+  var s = '';
+  while (col > 0) { var m = (col - 1) % 26; s = String.fromCharCode(65 + m) + s; col = (col - m - 1) / 26; }
+  return s;
 }
 
 function withLock_(fn) {
   var lock = LockService.getDocumentLock();
   try { lock.waitLock(10000); }
-  catch (e) { return { ok: false, message: 'Busy, please click again', slot: 0 }; }
+  catch (e) { return { ok: false, message: 'Busy, please click again', col: 0 }; }
   try { return fn(); }
-  catch (err) { return { ok: false, message: 'Error: ' + err.message, slot: 0 }; }
+  catch (err) { return { ok: false, message: 'Error: ' + err.message, col: 0 }; }
   finally { lock.releaseLock(); }
 }

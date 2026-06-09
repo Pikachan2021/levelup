@@ -78,6 +78,7 @@
     <script>
       var STAFF = '<?= staffKey ?>';
       var TOKEN = '<?= token ?>';
+      var lastCol = 0;
 
       document.getElementById('today').textContent = formatToday();
 
@@ -99,16 +100,17 @@
         setBusy(true);
         showStatus('Recording…', false);
         google.script.run
-          .withSuccessHandler(function (res) { setBusy(false); showStatus(res.message, !res.ok); })
+          .withSuccessHandler(function (res) { setBusy(false); if (res.ok && res.col) lastCol = res.col; showStatus(res.message, !res.ok); })
           .withFailureHandler(function (err) { setBusy(false); showStatus('Connection error: ' + err.message, true); })
           .recordPunch(STAFF, task, TOKEN);
       }
       function undoLast() {
+        if (!lastCol) { showStatus('Nothing to undo yet', true); return; }
         setBusy(true);
         google.script.run
-          .withSuccessHandler(function (res) { setBusy(false); showStatus(res.message, !res.ok); })
+          .withSuccessHandler(function (res) { setBusy(false); if (res.ok) lastCol = 0; showStatus(res.message, !res.ok); })
           .withFailureHandler(function (err) { setBusy(false); showStatus('Connection error: ' + err.message, true); })
-          .undoPunch(STAFF, TOKEN);
+          .undoPunch(STAFF, lastCol, TOKEN);
       }
     </script>
   <? } ?>
